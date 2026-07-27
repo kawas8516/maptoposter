@@ -4,8 +4,9 @@ Two tabs:
 
 * **Classic** (FR7) — the 17 stock themes as a scrollable card grid with
   contrast-previewing swatches, plus the reference site's distance presets.
-* **Match a Photo** (FR3) — deferred to Phase 2b; ships as an honest
-  placeholder describing the designed pipeline rather than a broken stub.
+* **Match a Photo** (FR3) — upload a photo, extract a palette via K-Means in
+  CIELAB space, classify its mood zero-shot with CLIP, and guard/render the
+  derived theme exactly like every other path.
 
 Every tab shares the same two-column shell — control panel left, Result card
 right — built from the components in :mod:`ui`. All pipeline, guard and caching
@@ -23,7 +24,8 @@ from __future__ import annotations
 import streamlit as st
 
 import ui
-from aiposter import guards, pipeline, render, themes
+from aiposter import guards, photo, pipeline, render, themes
+from aiposter.spec import ThemeSpec
 from aiposter.timing import Timings
 
 st.set_page_config(page_title="AI Poster Studio", page_icon="🗺️", layout="wide")
@@ -242,37 +244,86 @@ def classic_tab() -> None:
         ui.result_panel("classic", _result_timings)
 
 
+_MOOD_CAPTIONS = {
+    "warm": "Warm-toned — reds/oranges lead the palette.",
+    "cool": "Cool-toned — blues/greens lead the palette.",
+    "dark": "Dark, moody — the poster's background follows the photo's darkest tone.",
+    "pastel": "Soft pastel — low-saturation clusters throughout.",
+    "vivid": "Vivid, saturated — the most prominent road tier follows the boldest colour.",
+}
+
+
 def photo_tab() -> None:
     left, right = st.columns([6, 7], gap="large")
 
     with left, ui.panel("photo"):
         ui.eyebrow("Match a Photo")
-        st.info(
-            "**Deferred to Phase 2b.** This tab is a placeholder, not a working feature — "
-            "it will be built once the text pipeline meets the evaluation benchmarks in the PRD."
+        st.caption(
+            "Upload a photo to derive a theme from its colours and mood. Processed in memory "
+            "only — nothing is written to disk or sent anywhere (security.md §3.2)."
         )
-        st.markdown(
-            """
-**The designed pipeline, for reference:**
+        uploaded = st.file_uploader("Photo", type=["png", "jpg", "jpeg", "webp"], key="photo_upload")
 
-1. **Palette extraction** — k-means (k≈6) over the image in CIELAB space, so
-   clusters follow perceived colour rather than raw RGB.
-2. **Role assignment** — extracted colours are ordered by lightness and mapped
-   onto poster roles: background, text, the five road tiers, water and parks.
-3. **Mood classification** — CLIP zero-shot on CPU
-   (`openai/clip-vit-base-patch32`) over warm / cool / dark / pastel / vivid,
-   steering which end of the lightness ordering becomes the background.
-4. **The same guards** — the extracted palette runs through the identical WCAG
-   and CIEDE2000 checks used everywhere else. That shared path is exactly why
-   this tab waits: hardening it once against text input is cheaper than
-   debugging it through two input modalities at the same time.
-
-Uploads will be validated by decoding with Pillow rather than trusting the file
-extension, capped in size and pixel count against decompression bombs, stripped
-of EXIF (which can carry GPS coordinates), and processed transiently without
-being written to disk.
-            """
+        location_columns = st.columns(2)
+        city = location_columns[0].text_input(
+            "City", placeholder="e.g., Tokyo, Paris, New York", key="photo_city"
         )
+        country = location_columns[1].text_input(
+            "Country", placeholder="e.g., Japan, France, USA", key="photo_country"
+        )
+        distance = ui.distance_control("photo")
+
+        guarded = None
+        timings = Timings()
+        if uploaded is not None:
+            try:
+                image = photo.validate_upload(uploaded.getvalue())
+            except photo.UploadError as exc:
+                st.error(f"Couldn't use that file: {exc}")
+            else:
+                st.image(image, caption="Uploaded photo", use_container_width=True)
+
+                with st.spinner("Extracting palette and classifying mood…"):
+                    raw_theme, mood, swatches = photo.derive_theme(image, timings=timings)
+                    theme = ThemeSpec(**raw_theme).to_theme_dict()
+
+                st.info(f"**Detected mood: {mood}** — {_MOOD_CAPTIONS.get(mood, '')}")
+
+                ui.eyebrow("Extracted palette")
+                extracted_html = "".join(
+                    f"<div style='background:{hex_color};height:40px;flex:1;border-radius:4px;"
+                    f"border:1px solid rgba(128,128,128,.35)' title='{hex_color} ({weight:.0%})'></div>"
+                    for hex_color, weight in swatches
+                )
+                st.markdown(f"<div style='display:flex;gap:4px'>{extracted_html}</div>", unsafe_allow_html=True)
+
+                ui.eyebrow("Theme")
+                swatch_row(theme, f"{theme['name']} — {theme['description']}")
+
+                edited = color_editor(theme, "photo")
+                is_edited = themes.is_modified(theme, edited)
+                if is_edited:
+                    st.caption("Palette edited — the guards will re-run on your version.")
+                    guarded, guard_result = pipeline.apply_palette_guards(edited, timings)
+                    swatch_row(guarded, "Your edited palette")
+                else:
+                    guarded, guard_result = pipeline.apply_palette_guards(theme, timings)
+                    if guard_result.changed:
+                        swatch_row(guarded, "After guard corrections")
+
+                ui.eyebrow("Guard checks")
+                guard_report(guard_result)
+
+        cache_hint(city, country, distance)
+        go = st.button(
+            "Generate Poster",
+            type="primary",
+            use_container_width=True,
+            key="photo_render",
+            disabled=not (guarded is not None and city.strip() and country.strip()),
+        )
+        if go:
+            do_render(guarded, city.strip(), country.strip(), distance, timings)
 
     with right, ui.result_container("photo"):
         ui.result_panel("photo", _result_timings)
@@ -280,10 +331,10 @@ being written to disk.
 
 ui.page_header()
 
-classic, photo = st.tabs(["Classic", "Match a Photo"])
-with classic:
+classic_tab_widget, photo_tab_widget = st.tabs(["Classic", "Match a Photo"])
+with classic_tab_widget:
     classic_tab()
-with photo:
+with photo_tab_widget:
     photo_tab()
 
 ui.history_grid()
