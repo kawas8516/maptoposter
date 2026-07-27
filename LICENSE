@@ -1,6 +1,7 @@
 MIT License
 
-Copyright (c) 2026 Ankur Gupta
+Copyright (c) 2026 Ankur Gupta (original maptoposter rendering engine)
+Copyright (c) 2026 Kaustubha Mandhane (AI Poster Studio theming layer)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +20,24 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+THIRD-PARTY NOTICES
+
+This project is a fork of maptoposter by Ankur Gupta:
+https://github.com/originalankur/maptoposter
+The original MIT copyright notice above is retained as required by that
+license. The rendering engine (create_map_poster.py, font_management.py,
+themes/, fonts/) is upstream work; the aiposter/ package, app.py, scripts/
+and tests/ are additions made by this fork.
+
+Map data is © OpenStreetMap contributors and is licensed under the Open
+Database License (ODbL) v1.0, NOT under the MIT license above. Generated
+posters embed OSM-derived geometry and carry the required attribution.
+See https://www.openstreetmap.org/copyright and https://opendatacommons.org/licenses/odbl/
+
+The Roboto fonts bundled in fonts/ are licensed by Google under the Apache
+License 2.0. Fonts fetched at runtime via --font-family come from Google Fonts
+under their respective open licenses (typically Apache 2.0 or SIL OFL 1.1).
+See https://fonts.google.com/attribution

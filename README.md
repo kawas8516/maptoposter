@@ -1,399 +1,248 @@
-# City Map Poster Generator
+# AI Poster Studio
 
-Generate beautiful, minimalist map posters for any city in the world.
+Describe an aesthetic in plain English and get a minimalist city map poster in a
+theme designed to match — automatically checked so it stays readable.
 
-<img src="posters/singapore_neon_cyberpunk_20260118_153328.png" width="250">
-<img src="posters/dubai_midnight_blue_20260118_140807.png" width="250">
+A fork of [maptoposter](https://github.com/originalankur/maptoposter) by Ankur
+Gupta. The rendering engine is upstream's and is **unmodified**; this fork adds
+an AI theming layer on top of it.
 
-## Examples
-
-| Country      | City           | Theme           | Poster |
-|:------------:|:--------------:|:---------------:|:------:|
-| USA          | San Francisco  | sunset          | <img src="posters/san_francisco_sunset_20260118_144726.png" width="250"> |
-| Spain        | Barcelona      | warm_beige      | <img src="posters/barcelona_warm_beige_20260118_140048.png" width="250"> |
-| Italy        | Venice         | blueprint       | <img src="posters/venice_blueprint_20260118_140505.png" width="250"> |
-| Japan        | Tokyo          | japanese_ink    | <img src="posters/tokyo_japanese_ink_20260118_142446.png" width="250"> |
-| India        | Mumbai         | contrast_zones  | <img src="posters/mumbai_contrast_zones_20260118_145843.png" width="250"> |
-| Morocco      | Marrakech      | terracotta      | <img src="posters/marrakech_terracotta_20260118_143253.png" width="250"> |
-| Singapore    | Singapore      | neon_cyberpunk  | <img src="posters/singapore_neon_cyberpunk_20260118_153328.png" width="250"> |
-| Australia    | Melbourne      | forest          | <img src="posters/melbourne_forest_20260118_153446.png" width="250"> |
-| UAE          | Dubai          | midnight_blue   | <img src="posters/dubai_midnight_blue_20260118_140807.png" width="250"> |
-| USA          | Seattle        | emerald         | <img src="posters/seattle_emerald_20260124_162244.png" width="250"> |
-
-## Installation
-
-### With uv (Recommended)
-
-Make sure [uv](https://docs.astral.sh/uv/) is installed. Running the script by prepending `uv run` automatically creates and manages a virtual environment.
-
-```bash
-# First run will automatically install dependencies
-uv run ./create_map_poster.py --city "Paris" --country "France"
-
-# Or sync dependencies explicitly first (using locked versions)
-uv sync --locked
-uv run ./create_map_poster.py --city "Paris" --country "France"
+```
+"a moody, rain-soaked Tokyo at night with gold roads"
+        │
+        ▼
+   hosted LLM  ──►  validate  ──►  legibility guards  ──►  maptoposter  ──►  poster
+                   (pydantic)      (WCAG + CIEDE2000)      (unchanged)
 ```
 
-### With pip + venv
+---
+
+## Why
+
+maptoposter ships 17 hand-written theme files. They are good, but they are a
+fixed catalogue: you cannot ask for a mood, and there is no mechanism to stop a
+new palette from being illegible. This fork replaces the catalogue with a
+generator, and adds the missing safety net.
+
+Two things make that more than a wrapper around a chat model:
+
+**Model output is treated as untrusted input.** It is parsed with `json.loads`,
+validated by a pydantic schema that forbids unknown fields, and range-checked
+before it reaches a geocoder or a file path. A model cannot inject render
+parameters, escape the output directory, or make the app request a 500 km map.
+
+**Legibility is enforced, not hoped for.** Every generated palette is measured
+for WCAG text contrast and CIEDE2000 separation between road tiers. Failures are
+corrected by nudging lightness in CIELAB, and every change is reported back to
+you rather than applied silently.
+
+## Install
+
+Requires Python 3.11+.
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## Usage
-
-### Generate Poster
-
-If you're using `uv`:
+Set a Hugging Face token so the Describe tab can reach a model:
 
 ```bash
-uv run ./create_map_poster.py --city <city> --country <country> [options]
+export HF_TOKEN=hf_...             # or `huggingface-cli login`
 ```
 
-Otherwise (pip + venv):
+The token is read from `HF_TOKEN`, then `.streamlit/secrets.toml`, then your
+cached CLI login. It is never written to disk by this project and never logged.
+Without one, the Describe tab still works — it falls back to the closest stock
+theme.
+
+## Run
 
 ```bash
-python create_map_poster.py --city <city> --country <country> [options]
+streamlit run app.py
 ```
 
-### Required Options
+**Describe tab** — type a mood, get a theme. The spec, the swatches and the
+guard report all appear *before* rendering, so you can reject a bad palette or
+fix a misidentified city without waiting on the map download. City, country and
+radius are extracted from your description and pre-filled as editable fields.
+Naming the city up front is faster: the map download then runs concurrently with
+the model call instead of after it.
 
-| Option | Short | Description |
-|--------|-------|-------------|
-| `--city` | `-c` | City name (used for geocoding) |
-| `--country` | `-C` | Country name (used for geocoding) |
+**Classic tab** — the 17 stock themes with swatch previews and 3/5/10/15 km
+distance presets. Unedited stock themes render as their author designed them;
+the guards run only if you change a colour.
 
-### Optional Flags
+**Customize colors** — on either tab, expand the panel and adjust any of the
+nine independent colours. Edited palettes go through the same guards, and a
+re-render reuses the cached map data, so it costs only drawing time. `gradient_color`
+and `road_default` are derived and follow `bg` and `road_tertiary` automatically.
 
-| Option | Short | Description | Default |
-|--------|-------|-------------|---------|
-| **OPTIONAL:** `--latitude` | `-lat` | Override latitude center point (use with --longitude) | |
-| **OPTIONAL:** `--longitude` | `-long` | Override longitude center point (use with --latitude) | |
-| **OPTIONAL:** `--country-label` | | Override country text displayed on poster | |
-| **OPTIONAL:** `--theme` | `-t` | Theme name | terracotta |
-| **OPTIONAL:** `--distance` | `-d` | Map radius in meters | 18000 |
-| **OPTIONAL:** `--list-themes` | | List all available themes | |
-| **OPTIONAL:** `--all-themes` | | Generate posters for all available themes | |
-| **OPTIONAL:** `--width` | `-W` | Image width in inches | 12 (max: 20) |
-| **OPTIONAL:** `--height` | `-H` | Image height in inches | 16 (max: 20) |
+**Match a Photo tab** — deferred to Phase 2b, shipping as a placeholder that
+describes the designed pipeline. It will be built once the text pipeline meets
+the PRD's evaluation benchmarks, because it reuses the same guard and render
+path and hardening that once is cheaper than debugging it through two input
+modalities at the same time.
 
-### Multilingual Support - i18n
-
-Display city and country names in your language with custom fonts from google fonts:
-
-| Option | Short | Description |
-|--------|-------|-------------|
-| `--display-city` | `-dc` | Custom display name for city (e.g., "東京") |
-| `--display-country` | `-dC` | Custom display name for country (e.g., "日本") |
-| `--font-family` | | Google Fonts family name (e.g., "Noto Sans JP") |
-
-**Examples:**
+### Without the UI
 
 ```bash
-# Japanese
-python create_map_poster.py -c "Tokyo" -C "Japan" -dc "東京" -dC "日本" --font-family "Noto Sans JP"
+# generate a theme and inspect it, no rendering
+python scripts/try_describe.py "a foggy northern harbour at dawn"
 
-# Korean
-python create_map_poster.py -c "Seoul" -C "South Korea" -dc "서울" -dC "대한민국" --font-family "Noto Sans KR"
+# generate and render in one pass
+python scripts/try_describe.py "warm monsoon evening" --render --city Pune --country India
 
-# Arabic
-python create_map_poster.py -c "Dubai" -C "UAE" -dc "دبي" -dC "الإمارات" --font-family "Cairo"
+# render any theme JSON
+python scripts/render_theme.py scripts/rainy_night_tokyo.json \
+    --city Tokyo --country Japan -d 10000
+
+# evaluation harness: validity, repair, guard and latency rates -> CSV
+python scripts/evaluate.py --limit 20
 ```
 
-**Note**: Fonts are automatically downloaded from Google Fonts and cached locally in `fonts/cache/`.
+> The evaluation harness paces itself (`--delay`, default 3 s). Free-tier
+> inference rate-limits a rapid burst, and a throttled request is
+> indistinguishable in the aggregate from a model that cannot produce valid
+> JSON — so an unpaced run reports a validity figure that is really a quota
+> figure. The summary separates transport failures from schema failures for the
+> same reason.
 
-### Resolution Guide (300 DPI)
-
-Use these values for `-W` and `-H` to target specific resolutions:
-
-| Target | Resolution (px) | Inches (-W / -H) |
-|--------|-----------------|------------------|
-| **Instagram Post** | 1080 x 1080 | 3.6 x 3.6 |
-| **Mobile Wallpaper** | 1080 x 1920 | 3.6 x 6.4 |
-| **HD Wallpaper** | 1920 x 1080 | 6.4 x 3.6 |
-| **4K Wallpaper** | 3840 x 2160 | 12.8 x 7.2 |
-| **A4 Print** | 2480 x 3508 | 8.3 x 11.7 |
-
-### Usage Examples
-
-#### Basic Examples
+The original CLI is untouched and still works — see
+[docs/UPSTREAM_README.md](docs/UPSTREAM_README.md):
 
 ```bash
-# Simple usage with default theme
-python create_map_poster.py -c "Paris" -C "France"
-
-# With custom theme and distance
-python create_map_poster.py -c "New York" -C "USA" -t noir -d 12000
+python create_map_poster.py --city Paris --country France --theme noir
 ```
 
-#### Multilingual Examples (Non-Latin Scripts)
+## How the theming layer works
 
-Display city names in their native scripts:
+| Module | Role |
+|---|---|
+| `aiposter/spec.py` | `PosterSpec` / `ThemeSpec` — the pydantic contract model output must satisfy |
+| `aiposter/prompts.py` | System prompt, embedded JSON Schema, three few-shot examples |
+| `aiposter/llm.py` | Hugging Face client, repair round-trip, model and heuristic fallbacks |
+| `aiposter/guards.py` | sRGB↔CIELAB, WCAG contrast, CIEDE2000, auto-correction |
+| `aiposter/fallback.py` | Offline keyword → nearest stock theme |
+| `aiposter/render.py` | Theme injection into the upstream engine; safe output paths |
+| `aiposter/themes.py` | Registry of the 17 stock themes; colour-edit merging |
+| `aiposter/pipeline.py` | Orchestration: concurrency, guards, staged rendering |
+| `aiposter/llm_cache.py` | Disk cache of model responses, keyed by normalised prompt |
+| `aiposter/timing.py` | Per-stage timing instrumentation |
+
+### Generation always returns something
+
+1. Ask `Qwen/Qwen2.5-7B-Instruct`.
+2. If the JSON fails validation, **one** repair round-trip carrying the
+   validation error back to the model.
+3. If that fails, the same two steps against `Qwen/Qwen2.5-72B-Instruct`.
+4. If that fails, an offline keyword match to the nearest stock theme.
+
+The repair message contains the validator's complaint and nothing else — no
+stack traces, no file paths, no environment details.
+
+`meta-llama/Llama-3.1-8B-Instruct` is deliberately not used: it is gated behind
+manual licence approval, so calls fail until a human is approved.
+
+### The guards
+
+| Check | Threshold | Rationale |
+|---|---|---|
+| WCAG contrast, `text` vs `bg` | ≥ 4.5:1 | One text colour serves the ~60pt city name *and* the 14pt coordinates and 8pt attribution, so the AA-normal bar is the honest one |
+| CIEDE2000, adjacent road tiers | ≥ 10 | Keeps a motorway distinguishable from a primary road at poster scale |
+
+When contrast fails, the **text** colour moves, never the background — the
+background is where the aesthetic intent lives. The correction binary-searches
+L\* for the smallest change that passes, so hue and chroma survive.
+
+When two road tiers are too close, the lower-priority tier is pushed along the
+ramp's lightness direction. `road_default` is excluded from the check because it
+duplicates another tier by convention in all 17 stock themes.
+
+Both thresholds live in `GuardConfig` and can be changed in one place.
+
+> **Worth knowing:** at ΔE ≥ 10, only 3 of the 17 stock themes would pass road
+> separation, and `sunset` fails contrast at 3.94:1. Generated themes are held
+> to a stricter bar than the shipped catalogue. That is a defensible choice —
+> hand-tuned designs earn latitude an automated palette has not — but if you
+> want parity with existing practice, lower `min_delta_e` to about 6.
+
+The colour maths is implemented directly rather than pulled from a library:
+`colormath` is unmaintained and broken on numpy 2.x. The CIEDE2000
+implementation is verified against 29 published reference pairs from Sharma,
+Wu & Dalal (2005), including the arctangent-discontinuity cases that break naive
+implementations.
+
+## Performance
+
+Every generation records per-stage timings — `llm_ms`, `validate_ms`,
+`guard_ms`, `geocode_ms`, `graph_ms`, `render_ms` — surfaced in a "Performance"
+expander in the UI and written to the evaluation CSV. A single end-to-end number
+cannot tell you whether a slow run was the model, the geocoder, the OSM download
+or matplotlib; these can.
+
+Three things keep the common path quick:
+
+- **Overlapping** — when the city is known up front, the OSM download runs on a
+  second thread while the model is still thinking. When it is not known, there
+  is genuinely nothing to prefetch, and the pipeline says so rather than
+  pretending otherwise.
+- **Response caching** — repeated descriptions are served from disk, keyed by a
+  hash of the normalised prompt plus the model id and prompt version, so editing
+  the prompt or switching models does not serve stale answers.
+- **Fetch/draw separation** — map data is fetched explicitly before drawing, so
+  a colour edit re-renders from cache with no network at all. Measured on a
+  cached city, a re-render after a colour tweak costs ~4 s, essentially all of
+  it matplotlib.
+
+## Tests
 
 ```bash
-# Japanese
-python create_map_poster.py -c "Tokyo" -C "Japan" -dc "東京" -dC "日本" --font-family "Noto Sans JP" -t japanese_ink
-
-# Korean
-python create_map_poster.py -c "Seoul" -C "South Korea" -dc "서울" -dC "대한민국" --font-family "Noto Sans KR" -t midnight_blue
-
-# Thai
-python create_map_poster.py -c "Bangkok" -C "Thailand" -dc "กรุงเทพมหานคร" -dC "ประเทศไทย" --font-family "Noto Sans Thai" -t sunset
-
-# Arabic
-python create_map_poster.py -c "Dubai" -C "UAE" -dc "دبي" -dC "الإمارات" --font-family "Cairo" -t terracotta
-
-# Chinese (Simplified)
-python create_map_poster.py -c "Beijing" -C "China" -dc "北京" -dC "中国" --font-family "Noto Sans SC"
-
-# Khmer
-python create_map_poster.py -c "Phnom Penh" -C "Cambodia" -dc "ភ្នំពេញ" -dC "កម្ពុជា" --font-family "Noto Sans Khmer"
+pytest tests/ -q
 ```
 
-#### Advanced Examples
+148 tests, none of which touch the network. They cover the CIEDE2000 reference
+vectors, LAB round-tripping across every colour the project ships, guard
+idempotence against adversarial palettes, schema rejection cases, prompt
+injection isolation, and the theme-injection regression described below.
 
-```bash
-# Iconic grid patterns
-python create_map_poster.py -c "New York" -C "USA" -t noir -d 12000           # Manhattan grid
-python create_map_poster.py -c "Barcelona" -C "Spain" -t warm_beige -d 8000   # Eixample district
+## A note on the upstream integration
 
-# Waterfront & canals
-python create_map_poster.py -c "Venice" -C "Italy" -t blueprint -d 4000       # Canal network
-python create_map_poster.py -c "Amsterdam" -C "Netherlands" -t ocean -d 6000  # Concentric canals
-python create_map_poster.py -c "Dubai" -C "UAE" -t midnight_blue -d 15000     # Palm & coastline
+`create_map_poster.py` reads its colours from a module-level `THEME` global that
+is only assigned inside its `if __name__ == "__main__":` block. Run as a script
+that is fine. Imported — as this app does — `THEME` stays empty and the first
+colour lookup raises a bare `KeyError`, *after* the slow OSM download has already
+completed.
 
-# Radial patterns
-python create_map_poster.py -c "Paris" -C "France" -t pastel_dream -d 10000   # Haussmann boulevards
-python create_map_poster.py -c "Moscow" -C "Russia" -t noir -d 12000          # Ring roads
+Since upstream is not modified, `aiposter/render.py` assigns the module
+attribute directly, under a lock that also serialises matplotlib's global figure
+state. It validates that every required colour is present *before* the network
+fetch, so a malformed theme fails in milliseconds instead of minutes. A
+regression test asserts all 11 colours are live at call time.
 
-# Organic old cities
-python create_map_poster.py -c "Tokyo" -C "Japan" -t japanese_ink -d 15000    # Dense organic streets
-python create_map_poster.py -c "Marrakech" -C "Morocco" -t terracotta -d 5000 # Medina maze
-python create_map_poster.py -c "Rome" -C "Italy" -t warm_beige -d 8000        # Ancient layout
+## Project docs
 
-# Coastal cities
-python create_map_poster.py -c "San Francisco" -C "USA" -t sunset -d 10000    # Peninsula grid
-python create_map_poster.py -c "Sydney" -C "Australia" -t ocean -d 12000      # Harbor city
-python create_map_poster.py -c "Mumbai" -C "India" -t contrast_zones -d 18000 # Coastal peninsula
+- [prd.md](prd.md) — requirements and success metrics
+- [security.md](security.md) — threat model, secrets handling, input validation
+- [docs/UPSTREAM_README.md](docs/UPSTREAM_README.md) — the original CLI documentation
 
-# River cities
-python create_map_poster.py -c "London" -C "UK" -t noir -d 15000              # Thames curves
-python create_map_poster.py -c "Budapest" -C "Hungary" -t copper_patina -d 8000  # Danube split
+## Roadmap
 
-# Override center coordinates
-python create_map_poster.py --city "New York" --country "USA" -lat 40.776676 -long -73.971321 -t noir
+Implemented: Describe tab, Classic tab, guards, evaluation telemetry.
+Planned: Match a Photo (k-means palette extraction + CLIP mood), the evaluation
+harness over ~100 prompts, and a pre-generated ControlNet gallery.
 
-# List available themes
-python create_map_poster.py --list-themes
+## Credits and licensing
 
-# Generate posters for every theme
-python create_map_poster.py -c "Tokyo" -C "Japan" --all-themes
-```
+Built on [maptoposter](https://github.com/originalankur/maptoposter) by Ankur
+Gupta, MIT licensed. This fork remains MIT; the original copyright notice is
+retained in [LICENSE](LICENSE).
 
-### Distance Guide
+Map data © OpenStreetMap contributors, licensed under the
+[ODbL](https://www.openstreetmap.org/copyright) — a different licence from the
+code, and it applies to every poster you generate.
 
-| Distance | Best for |
-|----------|----------|
-| 4000-6000m | Small/dense cities (Venice, Amsterdam center) |
-| 8000-12000m | Medium cities, focused downtown (Paris, Barcelona) |
-| 15000-20000m | Large metros, full city view (Tokyo, Mumbai) |
-
-## Themes
-
-17 themes available in `themes/` directory:
-
-| Theme | Style |
-|-------|-------|
-| `gradient_roads` | Smooth gradient shading |
-| `contrast_zones` | High contrast urban density |
-| `noir` | Pure black background, white roads |
-| `midnight_blue` | Navy background with gold roads |
-| `blueprint` | Architectural blueprint aesthetic |
-| `neon_cyberpunk` | Dark with electric pink/cyan |
-| `warm_beige` | Vintage sepia tones |
-| `pastel_dream` | Soft muted pastels |
-| `japanese_ink` | Minimalist ink wash style |
-| `emerald`      | Lush dark green aesthetic |
-| `forest` | Deep greens and sage |
-| `ocean` | Blues and teals for coastal cities |
-| `terracotta` | Mediterranean warmth |
-| `sunset` | Warm oranges and pinks |
-| `autumn` | Seasonal burnt oranges and reds |
-| `copper_patina` | Oxidized copper aesthetic |
-| `monochrome_blue` | Single blue color family |
-
-## Output
-
-Posters are saved to `posters/` directory with format:
-
-```text
-{city}_{theme}_{YYYYMMDD_HHMMSS}.png
-```
-
-## Adding Custom Themes
-
-Create a JSON file in `themes/` directory:
-
-```json
-{
-  "name": "My Theme",
-  "description": "Description of the theme",
-  "bg": "#FFFFFF",
-  "text": "#000000",
-  "gradient_color": "#FFFFFF",
-  "water": "#C0C0C0",
-  "parks": "#F0F0F0",
-  "road_motorway": "#0A0A0A",
-  "road_primary": "#1A1A1A",
-  "road_secondary": "#2A2A2A",
-  "road_tertiary": "#3A3A3A",
-  "road_residential": "#4A4A4A",
-  "road_default": "#3A3A3A"
-}
-```
-
-## Project Structure
-
-```text
-map_poster/
-├── create_map_poster.py    # Main script
-├── font_management.py      # Font loading and Google Fonts integration
-├── themes/                 # Theme JSON files
-├── fonts/                  # Font files
-│   ├── Roboto-*.ttf        # Default Roboto fonts
-│   └── cache/              # Downloaded Google Fonts (auto-generated)
-├── posters/                # Generated posters
-└── README.md
-```
-
-
-## Hacker's Guide
-
-Quick reference for contributors who want to extend or modify the script.
-
-### Contributors Guide
-
-- Bug fixes are welcomed
-- Don't submit user interface (web/desktop)
-- Don't Dockerize for now
-- If you vibe code any fix please test it and see before and after version of poster
-- Before embarking on a big feature please ask in Discussions/Issue if it will be merged
-
-### Architecture Overview
-
-```text
-┌─────────────────┐     ┌──────────────┐     ┌─────────────────┐
-│   CLI Parser    │────▶│  Geocoding   │────▶│  Data Fetching  │
-│   (argparse)    │     │  (Nominatim) │     │    (OSMnx)      │
-└─────────────────┘     └──────────────┘     └─────────────────┘
-                                                     │
-                        ┌──────────────┐             ▼
-                        │    Output    │◀────┌─────────────────┐
-                        │  (matplotlib)│     │   Rendering     │
-                        └──────────────┘     │  (matplotlib)   │
-                                             └─────────────────┘
-```
-
-### Key Functions
-
-| Function | Purpose | Modify when... |
-|----------|---------|----------------|
-| `get_coordinates()` | City → lat/lon via Nominatim | Switching geocoding provider |
-| `create_poster()` | Main rendering pipeline | Adding new map layers |
-| `get_edge_colors_by_type()` | Road color by OSM highway tag | Changing road styling |
-| `get_edge_widths_by_type()` | Road width by importance | Adjusting line weights |
-| `create_gradient_fade()` | Top/bottom fade effect | Modifying gradient overlay |
-| `load_theme()` | JSON theme → dict | Adding new theme properties |
-| `is_latin_script()` | Detects script for typography | Supporting new scripts |
-| `load_fonts()` | Load custom/default fonts | Changing font loading logic |
-
-### Rendering Layers (z-order)
-
-```text
-z=11  Text labels (city, country, coords)
-z=10  Gradient fades (top & bottom)
-z=3   Roads (via ox.plot_graph)
-z=2   Parks (green polygons)
-z=1   Water (blue polygons)
-z=0   Background color
-```
-
-### OSM Highway Types → Road Hierarchy
-
-```python
-# In get_edge_colors_by_type() and get_edge_widths_by_type()
-motorway, motorway_link     → Thickest (1.2), darkest
-trunk, primary              → Thick (1.0)
-secondary                   → Medium (0.8)
-tertiary                    → Thin (0.6)
-residential, living_street  → Thinnest (0.4), lightest
-```
-
-### Typography & Script Detection
-
-The script automatically detects text scripts to apply appropriate typography:
-
-- **Latin scripts** (English, French, Spanish, etc.): Letter spacing applied for elegant "P  A  R  I  S" effect
-- **Non-Latin scripts** (Japanese, Arabic, Thai, Korean, etc.): Natural spacing for "東京" (no gaps between characters)
-
-Script detection uses Unicode ranges (U+0000-U+024F for Latin). If >80% of alphabetic characters are Latin, spacing is applied.
-
-### Adding New Features
-
-**New map layer (e.g., railways):**
-
-```python
-# In create_poster(), after parks fetch:
-try:
-    railways = ox.features_from_point(point, tags={'railway': 'rail'}, dist=dist)
-except:
-    railways = None
-
-# Then plot before roads:
-if railways is not None and not railways.empty:
-    railways = railways.to_crs(g_proj.graph["crs"])
-    railways.plot(ax=ax, color=THEME['railway'], linewidth=0.5, zorder=2.5)
-```
-
-**New theme property:**
-
-1. Add to theme JSON: `"railway": "#FF0000"`
-2. Use in code: `THEME['railway']`
-3. Add fallback in `load_theme()` default dict
-
-### Typography Positioning
-
-All text uses `transform=ax.transAxes` (0-1 normalized coordinates):
-
-```text
-y=0.14  City name (spaced letters for Latin scripts)
-y=0.125 Decorative line
-y=0.10  Country name
-y=0.07  Coordinates
-y=0.02  Attribution (bottom-right)
-```
-
-### Useful OSMnx Patterns
-
-```python
-# Get all buildings
-buildings = ox.features_from_point(point, tags={'building': True}, dist=dist)
-
-# Get specific amenities
-cafes = ox.features_from_point(point, tags={'amenity': 'cafe'}, dist=dist)
-
-# Different network types
-G = ox.graph_from_point(point, dist=dist, network_type='drive')  # roads only
-G = ox.graph_from_point(point, dist=dist, network_type='bike')   # bike paths
-G = ox.graph_from_point(point, dist=dist, network_type='walk')   # pedestrian
-```
-
-### Performance Tips
-
-- Large `dist` values (>20km) = slow downloads + memory heavy
-- Cache coordinates locally to avoid Nominatim rate limits
-- Use `network_type='drive'` instead of `'all'` for faster renders
-- Reduce `dpi` from 300 to 150 for quick previews
+Bundled Roboto fonts are Apache 2.0. Note that `fonts/` currently ships the
+`.ttf` files without their licence text; adding `fonts/LICENSE.txt` would close
+that gap.

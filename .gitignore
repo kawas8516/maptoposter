@@ -33,3 +33,17 @@ test_venv/
 htmlcov/
 .coverage
 .pytest_cache/
+
+# Secrets (security.md §2) - never commit tokens
+.env
+*.env
+.streamlit/secrets.toml
+*.token
+secrets.toml
+
+# AI-generated posters
+posters/generated/
+
+# Evaluation runs - regenerable, and they accumulate one CSV per run.
+# Force-add a milestone run when it is worth keeping: git add -f runs/<file>.csv
+runs/

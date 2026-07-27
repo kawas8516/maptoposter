@@ -1,0 +1,15 @@
+{
+  "name": "Rainy Night Tokyo",
+  "description": "Moody night in Tokyo with gold roads and dark wet asphalt",
+  "bg": "#1B1B1B",
+  "text": "#BDBDBD",
+  "gradient_color": "#1B1B1B",
+  "water": "#212121",
+  "parks": "#2C2C2C",
+  "road_motorway": "#FFD700",
+  "road_primary": "#FFA500",
+  "road_secondary": "#FF4500",
+  "road_tertiary": "#E80000",
+  "road_residential": "#B22222",
+  "road_default": "#E80000"
+}
