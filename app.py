@@ -6,13 +6,15 @@ Three tabs:
   guarded for legibility, then rendered. Deliberately two-phase: the spec and
   the guard report appear *before* rendering, so a bad palette or a wrong city
   can be caught before the map download.
-* **Classic** (FR7) — the 17 stock themes with swatch previews and distance
-  presets, matching the reference site's flow.
+* **Classic** (FR7) — the 17 stock themes as a scrollable card grid with
+  contrast-previewing swatches, plus the reference site's distance presets.
 * **Match a Photo** (FR3) — deferred to Phase 2b; ships as an honest
   placeholder describing the designed pipeline rather than a broken stub.
 
-Both working tabs share the colour editor (FR7.3) and the session history strip
-(FR7.4), and both surface per-stage timings (NFR8).
+Every tab shares the same two-column shell — control panel left, Result card
+right — built from the components in :mod:`ui`. All pipeline, guard and caching
+behaviour is unchanged from before the visual overhaul; this file only decides
+where things appear.
 """
 
 from __future__ import annotations
@@ -21,12 +23,14 @@ import json
 
 import streamlit as st
 
+import ui
 from aiposter import guards, pipeline, render, themes
 from aiposter.llm import PromptTooLongError
 from aiposter.prompts import MAX_PROMPT_CHARS
 from aiposter.timing import Timings
 
 st.set_page_config(page_title="AI Poster Studio", page_icon="🗺️", layout="wide")
+ui.inject_css()
 
 MAX_HISTORY = 6
 
@@ -154,7 +158,7 @@ def performance_panel(timings: Timings, extra: str = "") -> None:
 
 
 def remember_poster(path, city: str, theme: dict) -> None:
-    """Push a poster onto the session history strip (FR7.4).
+    """Push a poster onto the session history grid (FR7.4).
 
     Session state only — nothing is persisted (security.md §6).
     """
@@ -165,47 +169,8 @@ def remember_poster(path, city: str, theme: dict) -> None:
     st.session_state["history"] = history[:MAX_HISTORY]
 
 
-def history_strip() -> None:
-    """Thumbnails of this session's posters (FR7.4)."""
-    history = st.session_state.get("history", [])
-    if not history:
-        return
-
-    st.markdown("---")
-    st.markdown("##### Previous posters this session")
-    for column, entry in zip(st.columns(MAX_HISTORY), history):
-        with column:
-            try:
-                st.image(entry["path"], use_container_width=True)
-            except Exception:  # noqa: BLE001 - a deleted file must not break the page
-                st.caption("(file no longer available)")
-                continue
-            st.caption(f"**{entry['city']}** · {entry['theme_name']}")
-            try:
-                with open(entry["path"], "rb") as handle:
-                    st.download_button(
-                        "Download",
-                        data=handle.read(),
-                        file_name=f"{entry['city'].lower().replace(' ', '_')}_poster.png",
-                        mime="image/png",
-                        key=f"hist_{entry['path']}",
-                        use_container_width=True,
-                    )
-            except OSError:
-                pass
-
-
-def distance_selector(key: str, default: int = themes.DEFAULT_DISTANCE_M) -> int:
-    """Distance preset dropdown (FR7.2)."""
-    labels = [label for label, _ in themes.DISTANCE_PRESETS]
-    values = [metres for _, metres in themes.DISTANCE_PRESETS]
-    index = values.index(default) if default in values else 0
-    chosen = st.selectbox("Map radius", labels, index=index, key=key)
-    return dict(themes.DISTANCE_PRESETS)[chosen]
-
-
-def do_render(theme: dict, city: str, country: str, distance: int, timings: Timings, key: str) -> None:
-    """Render, display, remember."""
+def do_render(theme: dict, city: str, country: str, distance: int, timings: Timings) -> None:
+    """Render, remember, and publish to the shared Result panel."""
     cached = render.is_cached(city, country, distance)
     spinner = "Re-rendering from cached map data…" if cached else f"Fetching map data for {city}…"
     try:
@@ -216,18 +181,16 @@ def do_render(theme: dict, city: str, country: str, distance: int, timings: Timi
         return
 
     remember_poster(path, city, theme)
-    st.image(str(path), use_container_width=True)
-    st.download_button(
-        "Download PNG",
-        data=path.read_bytes(),
-        file_name=f"{city.lower().replace(' ', '_')}_poster.png",
-        mime="image/png",
-        key=f"download_{key}",
-    )
-    performance_panel(
-        timings,
-        "Map data was already cached, so only rendering ran." if cached else "",
-    )
+    ui.set_result(path, city, theme.get("name", ""), timings)
+
+
+def _result_timings(timings: Timings) -> None:
+    performance_panel(timings)
+
+
+def cache_hint(city: str, country: str, distance: int) -> None:
+    if city.strip() and country.strip() and render.is_cached(city.strip(), country.strip(), distance):
+        st.caption("✓ Map data cached — this render will skip the download.")
 
 
 # --------------------------------------------------------------------------
@@ -236,168 +199,191 @@ def do_render(theme: dict, city: str, country: str, distance: int, timings: Timi
 
 
 def describe_tab() -> None:
-    st.subheader("Describe an aesthetic")
+    left, right = st.columns([6, 7], gap="large")
 
-    description = st.text_area(
-        "What should the poster feel like?",
-        placeholder="a moody, rain-soaked Tokyo at night with gold roads",
-        height=100,
-        max_chars=MAX_PROMPT_CHARS,
-        key="describe_prompt",
-    )
-    st.caption(
-        f"{len(description)}/{MAX_PROMPT_CHARS} characters · "
-        "Your description is sent to a hosted model on Hugging Face. Nothing else leaves this machine."
-    )
-
-    with st.expander("Know the city already? (makes generation faster)"):
+    with left, ui.panel("describe"):
+        ui.eyebrow("Describe an aesthetic")
+        description = st.text_area(
+            "What should the poster feel like?",
+            placeholder="a moody, rain-soaked Tokyo at night with gold roads",
+            height=100,
+            max_chars=MAX_PROMPT_CHARS,
+            key="describe_prompt",
+        )
         st.caption(
-            "If you name the city here, the map download runs at the same time as the "
-            "model call instead of after it. Leave blank and the model infers the city "
-            "from your description."
-        )
-        hint_columns = st.columns([2, 2, 2])
-        city_hint = hint_columns[0].text_input("City", key="describe_city_hint")
-        country_hint = hint_columns[1].text_input("Country", key="describe_country_hint")
-        with hint_columns[2]:
-            distance_hint = distance_selector("describe_distance_hint")
-
-    if st.button("Generate theme", type="primary", disabled=not description.strip()):
-        try:
-            with st.spinner("Asking the model for a theme…"):
-                prepared = pipeline.prepare_from_description(
-                    description,
-                    city_hint=city_hint.strip() or None,
-                    country_hint=country_hint.strip() or None,
-                    distance_hint=distance_hint,
-                )
-        except PromptTooLongError as exc:
-            st.error(str(exc))
-            return
-        except Exception as exc:  # noqa: BLE001
-            st.error(f"Generation failed: {exc}")
-            return
-        st.session_state["describe_prepared"] = prepared
-
-    prepared = st.session_state.get("describe_prepared")
-    if prepared is None:
-        return
-
-    generation = prepared.generation
-    if generation is not None:
-        label, explanation = _SOURCE_LABELS.get(generation.trace.source, (generation.trace.source, ""))
-        if generation.trace.cache_hit:
-            explanation += " (served from the local response cache)"
-        st.info(f"**{label}** — {explanation}")
-
-    st.markdown("#### Theme")
-    swatch_row(prepared.theme, f"{prepared.theme['name']} — {prepared.theme['description']}")
-
-    edited = color_editor(prepared.theme, "describe")
-    is_edited = themes.is_modified(prepared.theme, edited)
-    if is_edited:
-        st.caption("Palette edited — the guards will re-run on your version.")
-        edited, guard_result = pipeline.apply_palette_guards(edited)
-        swatch_row(edited, "Your edited palette")
-    else:
-        guard_result = prepared.guard_result
-
-    st.markdown("#### Guard checks")
-    guard_report(guard_result)
-
-    with st.expander("Specification and trace"):
-        st.json(edited)
-        if generation is not None:
-            st.json(generation.trace.as_dict())
-
-    st.markdown("#### Confirm the location")
-    if prepared.city is None:
-        st.warning("No location could be inferred from your description — please fill these in.")
-    location_columns = st.columns([2, 2, 2])
-    city = location_columns[0].text_input("City", value=prepared.city or "", key="describe_city")
-    country = location_columns[1].text_input("Country", value=prepared.country or "", key="describe_country")
-    with location_columns[2]:
-        distance = distance_selector(
-            "describe_distance", themes.nearest_preset(prepared.distance)
+            f"{len(description)}/{MAX_PROMPT_CHARS} characters · "
+            "Your description is sent to a hosted model on Hugging Face. Nothing else leaves this machine."
         )
 
-    action_columns = st.columns([1, 1, 4])
-    with action_columns[0]:
-        go = st.button("Render poster", type="primary", disabled=not (city.strip() and country.strip()))
-    with action_columns[1]:
-        st.download_button(
-            "Theme JSON",
-            data=json.dumps(edited, indent=2),
-            file_name=f"{edited['name'].lower().replace(' ', '_')}.json",
-            mime="application/json",
-        )
-    if city.strip() and country.strip() and render.is_cached(city.strip(), country.strip(), distance):
-        action_columns[2].caption("✓ Map data cached — this render will skip the download.")
+        with st.expander("Know the city already? (makes generation faster)"):
+            st.caption(
+                "If you name the city here, the map download runs at the same time as the "
+                "model call instead of after it. Leave blank and the model infers the city "
+                "from your description."
+            )
+            hint_columns = st.columns(2)
+            city_hint = hint_columns[0].text_input(
+                "City", placeholder="e.g., Tokyo, Paris, New York", key="describe_city_hint"
+            )
+            country_hint = hint_columns[1].text_input(
+                "Country", placeholder="e.g., Japan, France, USA", key="describe_country_hint"
+            )
+            distance_hint = ui.distance_control("describe_hint")
 
-    if go:
-        do_render(edited, city.strip(), country.strip(), distance, Timings(), "describe")
+        if st.button(
+            "Generate theme",
+            type="primary",
+            use_container_width=True,
+            disabled=not description.strip(),
+        ):
+            try:
+                with st.spinner("Asking the model for a theme…"):
+                    prepared = pipeline.prepare_from_description(
+                        description,
+                        city_hint=city_hint.strip() or None,
+                        country_hint=country_hint.strip() or None,
+                        distance_hint=distance_hint,
+                    )
+            except PromptTooLongError as exc:
+                st.error(str(exc))
+                prepared = None
+            except Exception as exc:  # noqa: BLE001
+                st.error(f"Generation failed: {exc}")
+                prepared = None
+            if prepared is not None:
+                st.session_state["describe_prepared"] = prepared
+
+        prepared = st.session_state.get("describe_prepared")
+        if prepared is not None:
+            generation = prepared.generation
+            if generation is not None:
+                label, explanation = _SOURCE_LABELS.get(generation.trace.source, (generation.trace.source, ""))
+                if generation.trace.cache_hit:
+                    explanation += " (served from the local response cache)"
+                st.info(f"**{label}** — {explanation}")
+
+            ui.eyebrow("Theme")
+            swatch_row(prepared.theme, f"{prepared.theme['name']} — {prepared.theme['description']}")
+
+            edited = color_editor(prepared.theme, "describe")
+            is_edited = themes.is_modified(prepared.theme, edited)
+            if is_edited:
+                st.caption("Palette edited — the guards will re-run on your version.")
+                edited, guard_result = pipeline.apply_palette_guards(edited)
+                swatch_row(edited, "Your edited palette")
+            else:
+                guard_result = prepared.guard_result
+
+            ui.eyebrow("Guard checks")
+            guard_report(guard_result)
+
+            with st.expander("Specification and trace"):
+                st.json(edited)
+                if generation is not None:
+                    st.json(generation.trace.as_dict())
+
+            ui.eyebrow("Confirm the location")
+            if prepared.city is None:
+                st.warning("No location could be inferred from your description — please fill these in.")
+            location_columns = st.columns(2)
+            city = location_columns[0].text_input(
+                "City", value=prepared.city or "", placeholder="e.g., Tokyo, Paris, New York", key="describe_city"
+            )
+            country = location_columns[1].text_input(
+                "Country", value=prepared.country or "", placeholder="e.g., Japan, France, USA", key="describe_country"
+            )
+            distance = ui.distance_control(
+                "describe_render", themes.nearest_preset(prepared.distance)
+            )
+            cache_hint(city, country, distance)
+
+            go = st.button(
+                "Generate Poster",
+                type="primary",
+                use_container_width=True,
+                key="describe_render_btn",
+                disabled=not (city.strip() and country.strip()),
+            )
+            st.download_button(
+                "Theme JSON",
+                data=json.dumps(edited, indent=2),
+                file_name=f"{edited['name'].lower().replace(' ', '_')}.json",
+                mime="application/json",
+                use_container_width=True,
+            )
+            if go:
+                do_render(edited, city.strip(), country.strip(), distance, Timings())
+
+    with right, ui.result_container("describe"):
+        ui.result_panel("describe", _result_timings)
 
 
 def classic_tab() -> None:
-    st.subheader("Classic themes")
-    st.caption(
-        "The original maptoposter catalogue. Unedited stock themes are rendered as their "
-        "author designed them; the guards run only if you change a colour."
-    )
-
     names = themes.theme_names()
     if not names:
         st.error("No stock themes found in themes/.")
         return
 
-    controls = st.columns([2, 2, 2, 2])
-    theme_name = controls[0].selectbox(
-        "Theme", names, format_func=themes.display_name, key="classic_theme"
-    )
-    city = controls[1].text_input("City", value="Pune", key="classic_city")
-    country = controls[2].text_input("Country", value="India", key="classic_country")
-    with controls[3]:
-        distance = distance_selector("classic_distance")
+    left, right = st.columns([6, 7], gap="large")
 
-    base = themes.get(theme_name)
-    swatch_row(base, f"{themes.display_name(theme_name)} — {themes.describe(theme_name)}")
+    with left, ui.panel("classic"):
+        ui.eyebrow("Location")
+        location_columns = st.columns(2)
+        city = location_columns[0].text_input(
+            "City", value="Pune", placeholder="e.g., Tokyo, Paris, New York", key="classic_city"
+        )
+        country = location_columns[1].text_input(
+            "Country", value="India", placeholder="e.g., Japan, France, USA", key="classic_country"
+        )
 
-    edited = color_editor(base, f"classic_{theme_name}")
-    is_edited = themes.is_modified(base, edited)
+        distance = ui.distance_control("classic")
 
-    if is_edited:
-        st.caption("Palette edited — the guards will run on your version.")
-        guarded, guard_result = pipeline.apply_palette_guards(edited)
-        swatch_row(guarded, "Your edited palette")
-        guard_report(guard_result)
-    else:
-        guarded = base
-        with st.expander("How this stock theme measures against the guard thresholds"):
-            st.json(guards.evaluate_only(base))
+        ui.eyebrow("Theme")
+        theme_name = ui.theme_grid("classic")
+        base = themes.get(theme_name)
 
-    action_columns = st.columns([1, 5])
-    with action_columns[0]:
+        with st.expander("Theme colours in detail"):
+            swatch_row(base, f"{themes.display_name(theme_name)} — {themes.describe(theme_name)}")
+
+        edited = color_editor(base, f"classic_{theme_name}")
+        is_edited = themes.is_modified(base, edited)
+
+        if is_edited:
+            st.caption("Palette edited — the guards will run on your version.")
+            guarded, guard_result = pipeline.apply_palette_guards(edited)
+            swatch_row(guarded, "Your edited palette")
+            guard_report(guard_result)
+        else:
+            guarded = base
+            with st.expander("How this stock theme measures against the guard thresholds"):
+                st.json(guards.evaluate_only(base))
+
+        cache_hint(city, country, distance)
         go = st.button(
-            "Render poster",
+            "Generate Poster",
             type="primary",
+            use_container_width=True,
             key="classic_render",
             disabled=not (city.strip() and country.strip()),
         )
-    if city.strip() and country.strip() and render.is_cached(city.strip(), country.strip(), distance):
-        action_columns[1].caption("✓ Map data cached — this render will skip the download.")
+        if go:
+            do_render(guarded, city.strip(), country.strip(), distance, Timings())
 
-    if go:
-        do_render(guarded, city.strip(), country.strip(), distance, Timings(), "classic")
+    with right, ui.result_container("classic"):
+        ui.result_panel("classic", _result_timings)
 
 
 def photo_tab() -> None:
-    st.subheader("Match a Photo")
-    st.info(
-        "**Deferred to Phase 2b.** This tab is a placeholder, not a working feature — "
-        "it will be built once the text pipeline meets the evaluation benchmarks in the PRD."
-    )
-    st.markdown(
-        """
+    left, right = st.columns([6, 7], gap="large")
+
+    with left, ui.panel("photo"):
+        ui.eyebrow("Match a Photo")
+        st.info(
+            "**Deferred to Phase 2b.** This tab is a placeholder, not a working feature — "
+            "it will be built once the text pipeline meets the evaluation benchmarks in the PRD."
+        )
+        st.markdown(
+            """
 **The designed pipeline, for reference:**
 
 1. **Palette extraction** — k-means (k≈6) over the image in CIELAB space, so
@@ -416,12 +402,14 @@ Uploads will be validated by decoding with Pillow rather than trusting the file
 extension, capped in size and pixel count against decompression bombs, stripped
 of EXIF (which can carry GPS coordinates), and processed transiently without
 being written to disk.
-        """
-    )
+            """
+        )
+
+    with right, ui.result_container("photo"):
+        ui.result_panel("photo", _result_timings)
 
 
-st.title("🗺️ AI Poster Studio")
-st.caption("AI theming on top of the maptoposter rendering engine · map data © OpenStreetMap contributors")
+ui.page_header()
 
 describe, classic, photo = st.tabs(["Describe", "Classic", "Match a Photo"])
 with describe:
@@ -431,4 +419,5 @@ with classic:
 with photo:
     photo_tab()
 
-history_strip()
+ui.history_grid()
+ui.footer()
