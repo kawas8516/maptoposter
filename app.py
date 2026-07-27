@@ -20,6 +20,7 @@ where things appear.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import streamlit as st
 
@@ -409,15 +410,68 @@ being written to disk.
         ui.result_panel("photo", _result_timings)
 
 
+#: Root for FR6.2's pre-generated ControlNet gallery. Read-only, no GPU or
+#: notebook dependency at runtime -- see gallery/README.md and
+#: colab/controlnet_restyle.ipynb for how these images are produced.
+GALLERY_DIR = Path(__file__).resolve().parent / "gallery"
+
+
+def _gallery_images() -> dict[str, list[tuple[str, Path]]]:
+    """``{city: [(style, path), ...]}`` for every ``{city}_{style}.png`` found.
+
+    Any file not matching the naming convention is silently skipped -- an
+    unexpected file in this folder is not an error, just not shown.
+    """
+    grouped: dict[str, list[tuple[str, Path]]] = {}
+    if not GALLERY_DIR.is_dir():
+        return grouped
+    for path in sorted(GALLERY_DIR.glob("*.png")):
+        stem = path.stem
+        if "_" not in stem:
+            continue
+        city, _, style = stem.partition("_")
+        grouped.setdefault(city, []).append((style.replace("_", " "), path))
+    return grouped
+
+
+def gallery_tab() -> None:
+    with ui.panel("gallery"):
+        ui.eyebrow("Gallery")
+        st.caption(
+            "Pre-generated ControlNet restylings of real street layouts, produced offline on a "
+            "Colab GPU (see colab/controlnet_restyle.ipynb). Read-only -- nothing on this tab "
+            "runs a model or needs a GPU."
+        )
+
+        grouped = _gallery_images()
+        if not grouped:
+            st.markdown(
+                "<div class='aps-empty'><div class='aps-empty-icon'>🖼️</div>"
+                "Nothing here yet — run <code>colab/controlnet_restyle.ipynb</code> on Colab "
+                "and copy its output into <code>gallery/</code>.</div>",
+                unsafe_allow_html=True,
+            )
+            return
+
+        for city, images in grouped.items():
+            st.markdown(f"#### {city.title()}")
+            columns = st.columns(len(images))
+            for column, (style, path) in zip(columns, images):
+                with column:
+                    st.image(str(path), use_container_width=True, caption=style.title())
+
+
 ui.page_header()
 
-describe, classic, photo = st.tabs(["Describe", "Classic", "Match a Photo"])
+describe, classic, photo, gallery = st.tabs(["Describe", "Classic", "Match a Photo", "Gallery"])
 with describe:
     describe_tab()
 with classic:
     classic_tab()
 with photo:
     photo_tab()
+with gallery:
+    gallery_tab()
 
 ui.history_grid()
 ui.footer()
