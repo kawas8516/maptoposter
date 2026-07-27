@@ -41,6 +41,9 @@ dependencies = [
     "tqdm==4.67.1",
     "tzdata==2025.3",
     "urllib3==2.6.3",
+    "huggingface_hub==1.25.1",
+    "pydantic==2.13.4",
+    "streamlit==1.60.0",
 ]
 
 [build-system]
