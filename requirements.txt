@@ -41,7 +41,7 @@ streamlit==1.60.0
 
 # AI Poster Studio - Match a Photo (FR3): palette extraction + CLIP mood classification
 scikit-learn==1.5.2
-transformers==4.46.3
+transformers==5.0.0
 torch==2.5.1
 
 # AI Poster Studio - development
