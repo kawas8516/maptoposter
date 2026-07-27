@@ -55,6 +55,12 @@ PROMPTS: list[str] = [
     "an old European city with narrow winding streets",
     "arctic ice, pale and cold",
     "a jazz club at 2am",
+    "crimson rooftops and gold domes over Moscow at dusk",
+    "turquoise and silver, an icy Nordic palette",
+    "burnt orange and deep violet over a desert city at dusk",
+    "emerald green canals and cream stone in Amsterdam",
+    "mustard yellow taxis and charcoal streets, a New York night",
+    "indigo and rose gold over a Marrakech rooftop at sunset",
 ]
 
 

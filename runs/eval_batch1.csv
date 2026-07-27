@@ -1,0 +1,81 @@
+prompt,delivered,source,cache_hit,first_attempt_valid,repair_attempted,repair_succeeded,backup_used,fallback_used,network_failure,guard_passed,guard_violations,guard_corrections,contrast,min_adjacent_delta_e,city,country,distance,llm_ms,validate_ms,guard_ms,geocode_ms,graph_ms,render_ms,total_ms,wall_ms,first_error,error
+"a moody, rain-soaked Tokyo at night with gold roads",True,first,True,True,False,False,False,False,False,True,1,1,8.277,10.029,Tokyo,Japan,10000,0.0,1.7,3.6,0.0,0.0,0.0,5.3,5.4,,
+"a warm monsoon evening over Pune, terracotta rooftops and green hills",True,first,True,True,False,False,False,False,False,True,2,1,6.889,10.06,Pune,India,10000,0.0,2.9,15.3,0.0,0.0,0.0,18.2,18.4,,
+a sun-bleached whitewashed town on the Portuguese coast,True,first,True,True,False,False,False,False,False,True,4,4,9.88,10.013,Porto,Portugal,8000,0.0,6.4,41.2,0.0,0.0,0.0,47.6,47.8,,
+a quiet foggy morning in a northern harbour city,True,first,True,True,False,False,False,False,False,True,0,0,11.195,11.313,Bergen,Norway,6000,0.0,2.9,2.2,0.0,0.0,0.0,5.1,5.3,,
+"neon cyberpunk Seoul, electric pink and cyan",True,first,True,True,False,False,False,False,False,True,0,0,17.404,10.893,Seoul,South Korea,10000,0.0,2.2,2.1,0.0,0.0,0.0,4.3,4.5,,
+"an austere Scandinavian winter, almost monochrome",True,fallback,False,False,False,False,True,True,True,True,1,1,10.916,10.195,,,3000,1851.7,2.8,3.5,0.0,0.0,0.0,1858.0,1858.1,"HfHubHTTPError: (Request ID: Root=1-6a67dc35-3db6278f720e74db379dba1f;c6ac5934-d3bd-40aa-9841-62d9b0fee2c5)
+
+403 Forbidden: This authentication method does not ",
+"the golden hour over Rome, warm stone and long shadows",True,fallback,False,False,False,False,True,True,True,True,5,5,4.512,10.01,,,3000,546.3,5.5,15.5,0.0,0.0,0.0,567.4,567.5,"HfHubHTTPError: (Request ID: Root=1-6a67dc39-0e497d5709359b705c1c7e94;671a03fe-63dc-4e1c-8eee-9432f2d389cb)
+
+403 Forbidden: This authentication method does not ",
+a cold blue technical blueprint of Berlin,True,fallback,False,False,False,False,True,True,True,True,4,4,10.432,10.065,,,3000,548.0,5.5,14.2,0.0,0.0,0.0,567.8,567.9,"HfHubHTTPError: (Request ID: Root=1-6a67dc3d-32c69c7c2ba530d1346bff22;bf514973-5434-4641-b20e-b1719c35a7cb)
+
+403 Forbidden: This authentication method does not ",
+deep forest greens around Vancouver,True,fallback,False,False,False,False,True,True,True,True,1,1,8.749,10.038,,,3000,534.7,4.9,4.8,0.0,0.0,0.0,544.4,544.5,"HfHubHTTPError: (Request ID: Root=1-6a67dc40-0241b868531b36204dc98cbf;e68516a9-9a93-41e0-8b07-90b7dfe05eae)
+
+403 Forbidden: This authentication method does not ",
+"a dusty desert city at noon, bleached and hot",True,fallback,False,False,False,False,True,True,True,True,4,8,6.241,14.256,,,3000,519.5,5.7,11.7,0.0,0.0,0.0,536.9,537.0,"HfHubHTTPError: (Request ID: Root=1-6a67dc44-62a12ea21d7df07206837684;ada7ffe7-21f7-4d81-96b9-35c5bb7b69c7)
+
+403 Forbidden: This authentication method does not ",
+"Venice at dawn, pale water and soft pink light",True,fallback,False,False,False,False,True,True,True,True,4,8,6.241,14.256,,,3000,546.3,4.9,10.0,0.0,0.0,0.0,561.2,561.3,"HfHubHTTPError: (Request ID: Root=1-6a67dc47-3d6f7da926a6301113dd17a0;07f34505-1027-4a04-adff-dd379e7ed9b1)
+
+403 Forbidden: This authentication method does not ",
+"brutalist concrete grey, stark and industrial",True,fallback,False,False,False,False,True,True,True,True,2,2,21.0,10.007,,,3000,550.1,6.6,9.4,0.0,0.0,0.0,566.1,566.2,"HfHubHTTPError: (Request ID: Root=1-6a67dc4b-08a3455d1a1a890a4f29bbb7;1a69984a-d581-4b69-b1a7-34d0c19ebe3e)
+
+403 Forbidden: This authentication method does not ",
+"a tropical Singapore afternoon, humid and vivid",True,fallback,False,False,False,False,True,True,True,True,0,0,15.371,12.424,,,3000,531.7,4.9,0.8,0.0,0.0,0.0,537.3,537.4,"HfHubHTTPError: (Request ID: Root=1-6a67dc4e-1cf6685b0cba11de5f5c0df2;7d1d88a2-d75f-4169-bdac-e27a19fd7182)
+
+403 Forbidden: This authentication method does not ",
+muted vintage postcard tones of Havana,True,fallback,False,False,False,False,True,True,True,True,4,8,5.723,14.437,,,3000,570.2,6.1,11.4,0.0,0.0,0.0,587.7,587.8,"HfHubHTTPError: (Request ID: Root=1-6a67dc52-7ea398b013edd0886dcb212f;e1f53251-f9bc-46e5-8ff3-7f4c4c458ac3)
+
+403 Forbidden: This authentication method does not ",
+midnight over Reykjavik under the aurora,True,fallback,False,False,False,False,True,True,True,True,2,2,8.622,10.132,,,3000,521.6,5.3,7.6,0.0,0.0,0.0,534.6,534.7,"HfHubHTTPError: (Request ID: Root=1-6a67dc56-3fd6677a6d6c779b1dd4b510;4b234db8-3c2c-4efb-81ba-062ba00d5fef)
+
+403 Forbidden: This authentication method does not ",
+"an autumn morning in Kyoto, maple reds",True,fallback,False,False,False,False,True,True,True,True,0,0,6.647,11.555,,,3000,510.5,7.0,1.0,0.0,0.0,0.0,518.5,518.6,"HfHubHTTPError: (Request ID: Root=1-6a67dc59-3ac0be06752866fb158e1506;eb9f3674-d02a-4eca-8b1f-009f08ae4064)
+
+403 Forbidden: This authentication method does not ",
+"coastal Sydney, ocean blues and sandstone",True,fallback,False,False,False,False,True,True,True,True,3,3,6.588,10.078,,,3000,532.0,6.3,11.5,0.0,0.0,0.0,549.8,549.9,"HfHubHTTPError: (Request ID: Root=1-6a67dc5d-7394dcc457ea041b4aa598d0;49af6930-7694-4435-bc05-85ca7ce09cb1)
+
+403 Forbidden: This authentication method does not ",
+"a soft pastel dream, candy colours",True,fallback,False,False,False,False,True,True,True,True,4,8,6.241,14.256,,,3000,547.0,6.6,11.7,0.0,0.0,0.0,565.3,565.4,"HfHubHTTPError: (Request ID: Root=1-6a67dc60-4e622b64282b67f25c42b94a;0e6448b4-9ef6-4695-ab60-74e7fbb6e2be)
+
+403 Forbidden: This authentication method does not ",
+something calm,True,fallback,False,False,False,False,True,True,True,True,0,0,13.174,11.454,,,3000,527.6,3.4,1.1,0.0,0.0,0.0,532.1,532.2,"HfHubHTTPError: (Request ID: Root=1-6a67dc64-1052732b0a7eaa154787b386;c2457dfb-8c9c-403f-bfd3-1258483253da)
+
+403 Forbidden: This authentication method does not ",
+"bold and graphic, high contrast only",True,fallback,False,False,False,False,True,True,True,True,4,4,21.0,10.004,,,3000,533.8,6.5,14.3,0.0,0.0,0.0,554.5,554.6,"HfHubHTTPError: (Request ID: Root=1-6a67dc67-0f6e9111736e5f9d24181299;c4bdac88-0e85-4e80-a187-789e9f701c4f)
+
+403 Forbidden: This authentication method does not ",
+the Mumbai coastline at sunset,True,fallback,False,False,False,False,True,True,True,True,5,5,4.512,10.01,,,3000,525.7,5.7,15.3,0.0,0.0,0.0,546.7,546.8,"HfHubHTTPError: (Request ID: Root=1-6a67dc6b-27c449f063d00712493021b6;bf7d06e5-41d8-40a6-adbc-6fb39cf76448)
+
+403 Forbidden: This authentication method does not ",
+an old European city with narrow winding streets,True,fallback,False,False,False,False,True,True,True,True,4,4,6.124,10.002,,,3000,529.0,5.6,13.6,0.0,0.0,0.0,548.2,548.3,"HfHubHTTPError: (Request ID: Root=1-6a67dc6e-6558d4dd5b143db878af258b;53cda08b-3f1f-40b2-b3c3-1668a6a32d60)
+
+403 Forbidden: This authentication method does not ",
+"arctic ice, pale and cold",True,fallback,False,False,False,False,True,True,True,True,4,4,6.124,10.002,,,3000,561.0,5.7,14.0,0.0,0.0,0.0,580.7,580.8,"HfHubHTTPError: (Request ID: Root=1-6a67dc72-1880364a3f1f63c50c22dd59;85f63ba6-f8b3-446a-b6b5-6c223dfb5dab)
+
+403 Forbidden: This authentication method does not ",
+a jazz club at 2am,True,fallback,False,False,False,False,True,True,True,True,4,4,6.124,10.002,,,3000,517.4,3.4,12.4,0.0,0.0,0.0,533.2,533.3,"HfHubHTTPError: (Request ID: Root=1-6a67dc75-392de5494e4b092479737f0a;f49170e0-21ee-4daf-a702-e8a0ff4adcbd)
+
+403 Forbidden: This authentication method does not ",
+crimson rooftops and gold domes over Moscow at dusk,True,fallback,False,False,False,False,True,True,True,True,2,2,8.622,10.132,,,3000,523.3,2.4,6.5,0.0,0.0,0.0,532.3,532.4,"HfHubHTTPError: (Request ID: Root=1-6a67dc79-2fdfea7f3d293480485c548f;6722291e-e441-470a-9727-a29b6d8daf25)
+
+403 Forbidden: This authentication method does not ",
+"turquoise and silver, an icy Nordic palette",True,fallback,False,False,False,False,True,True,True,True,4,4,6.124,10.002,,,3000,517.3,2.3,11.8,0.0,0.0,0.0,531.5,531.6,"HfHubHTTPError: (Request ID: Root=1-6a67dc7d-34f58c4c0bf017e602976666;a1b04d22-0a00-433e-aaba-5289add48da7)
+
+403 Forbidden: This authentication method does not ",
+burnt orange and deep violet over a desert city at dusk,True,fallback,False,False,False,False,True,True,True,True,2,2,8.622,10.132,,,3000,499.0,3.9,7.0,0.0,0.0,0.0,509.9,510.1,"HfHubHTTPError: (Request ID: Root=1-6a67dc80-346f57ea4d1c4fd8296f2b53;bb85ec20-6f6e-4d9b-9248-cfebe93870b2)
+
+403 Forbidden: This authentication method does not ",
+emerald green canals and cream stone in Amsterdam,True,fallback,False,False,False,False,True,True,True,True,3,3,13.72,10.058,,,3000,630.8,5.2,12.2,0.0,0.0,0.0,648.3,648.4,"HfHubHTTPError: (Request ID: Root=1-6a67dc84-67ec6b6460f881a32ba7c183;d6d242d6-2cfc-40d4-bedb-c08e92f92755)
+
+403 Forbidden: This authentication method does not ",
+"mustard yellow taxis and charcoal streets, a New York night",True,fallback,False,False,False,False,True,True,True,True,2,2,21.0,10.007,,,3000,529.4,3.7,6.8,0.0,0.0,0.0,539.9,540.0,"HfHubHTTPError: (Request ID: Root=1-6a67dc87-09efe2037c8c290071e07947;612da70c-de32-46b7-94c0-c0499ec252da)
+
+403 Forbidden: This authentication method does not ",
+indigo and rose gold over a Marrakech rooftop at sunset,True,fallback,False,False,False,False,True,True,True,True,5,5,4.512,10.01,,,3000,571.2,6.9,15.7,0.0,0.0,0.0,593.7,593.8,"HfHubHTTPError: (Request ID: Root=1-6a67dc8b-44504ac06a3e64772857b02a;788ff578-5c2b-4aae-80ed-286bf7a8a1ce)
+
+403 Forbidden: This authentication method does not ",
