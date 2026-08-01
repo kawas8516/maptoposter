@@ -19,6 +19,8 @@ from typing import Iterator, Optional
 STAGES: tuple[str, ...] = (
     "llm_ms",
     "validate_ms",
+    "palette_ms",
+    "mood_ms",
     "guard_ms",
     "geocode_ms",
     "graph_ms",
@@ -28,6 +30,8 @@ STAGES: tuple[str, ...] = (
 STAGE_LABELS: dict[str, str] = {
     "llm_ms": "Model call",
     "validate_ms": "Schema validation",
+    "palette_ms": "Palette extraction",
+    "mood_ms": "Mood classification",
     "guard_ms": "Palette guards",
     "geocode_ms": "Geocoding",
     "graph_ms": "OSM graph",
