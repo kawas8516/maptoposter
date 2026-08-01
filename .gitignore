@@ -41,8 +41,12 @@ htmlcov/
 *.token
 secrets.toml
 
-# AI-generated posters
-posters/
+# AI-generated posters (except selected showcase images embedded in README.md)
+posters/*
+!posters/generated/
+posters/generated/*
+!posters/generated/poster_124d84432f16d3ea.png
+!posters/generated/poster_c0bfadcbf0df1cc3.png
 
 # Evaluation runs - regenerable, and they accumulate one CSV per run.
 # Force-add a milestone run when it is worth keeping: git add -f runs/<file>.csv

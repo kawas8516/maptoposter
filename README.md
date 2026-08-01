@@ -15,6 +15,10 @@ an AI theming layer on top of it.
                    (pydantic)      (WCAG + CIEDE2000)      (unchanged)
 ```
 
+| | |
+|---|---|
+| ![Example poster](posters/generated/poster_124d84432f16d3ea.png) | ![Example poster](posters/generated/poster_c0bfadcbf0df1cc3.png) |
+
 ---
 
 ## Why
