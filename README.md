@@ -1,11 +1,17 @@
 # AI Poster Studio
 
-Describe an aesthetic in plain English and get a minimalist city map poster in a
-theme designed to match — automatically checked so it stays readable.
+Turn any city into a clean, minimalist map poster. Pick from 17 built-in
+themes, or upload a photo and let the app build a matching color palette from
+it. Every palette — generated or hand-picked — is automatically checked for
+readability before you see the result.
 
 A fork of [maptoposter](https://github.com/originalankur/maptoposter) by Ankur
-Gupta. The rendering engine is upstream's and is **unmodified**; this fork adds
-an AI theming layer on top of it.
+Gupta. The map-rendering engine is upstream's and is **unmodified**; this fork
+adds an AI theming layer on top of it.
+
+There's also a description-to-theme pipeline you can drive from the command
+line (not currently wired into the app's UI — see [Run](#run) below) that
+turns a sentence like this into a full color theme:
 
 ```
 "a moody, rain-soaked Tokyo at night with gold roads"
@@ -23,22 +29,26 @@ an AI theming layer on top of it.
 
 ## Why
 
-maptoposter ships 17 hand-written theme files. They are good, but they are a
-fixed catalogue: you cannot ask for a mood, and there is no mechanism to stop a
-new palette from being illegible. This fork replaces the catalogue with a
-generator, and adds the missing safety net.
+maptoposter ships 17 hand-written theme files. They look great, but they're a
+fixed catalogue — you can't ask for a new mood, and nothing stops a hand-edited
+palette from becoming hard to read. This fork adds a theme generator on top of
+that catalogue, plus a safety net that applies to every theme, generated or
+not.
 
-Two things make that more than a wrapper around a chat model:
+**Model output is never trusted blindly.** A hosted LLM's response is parsed,
+checked against a strict schema (unknown fields are rejected), and
+range-checked before it can touch a file path or a network request. That means
+a model can't sneak in extra render parameters, write outside the output
+folder, or trick the app into requesting a huge map.
 
-**Model output is treated as untrusted input.** It is parsed with `json.loads`,
-validated by a pydantic schema that forbids unknown fields, and range-checked
-before it reaches a geocoder or a file path. A model cannot inject render
-parameters, escape the output directory, or make the app request a 500 km map.
-
-**Legibility is enforced, not hoped for.** Every generated palette is measured
-for WCAG text contrast and CIEDE2000 separation between road tiers. Failures are
-corrected by nudging lightness in CIELAB, and every change is reported back to
-you rather than applied silently.
+**Legibility is checked, not assumed.** Every palette — generated, stock, or
+pulled from a photo — is measured against two plain rules: **WCAG contrast**
+(is the text readable against the background?) and **CIEDE2000 color
+difference** (a perceptual color-distance metric — basically, "are these two
+colors different enough for a human to tell apart at a glance?"). A palette
+that fails either check gets nudged back into range automatically, and you're
+shown exactly what changed rather than having it happen silently. See
+[The guards](#the-guards) for the details.
 
 ## Install
 
@@ -50,23 +60,24 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Set a Hugging Face token so the Describe tab can reach a model:
+Optional — set a Hugging Face token if you want to use the description-to-theme
+CLI script (`scripts/try_describe.py`) or run the evaluation harness:
 
 ```bash
 export HF_TOKEN=hf_...             # or `huggingface-cli login`
 ```
 
 The token is read from `HF_TOKEN`, then `.streamlit/secrets.toml`, then your
-cached CLI login. It is never written to disk by this project and never logged.
-Without one, the Describe tab still works — it falls back to the closest stock
-theme.
+cached CLI login. This project never writes it to disk or logs it. Without a
+token, the description pipeline still works — it just falls back to the
+closest stock theme instead of calling the model.
 
-The Match a Photo tab additionally pulls in `scikit-learn`, `transformers` and
-`torch` (already pinned in `requirements.txt`). First use downloads CLIP's
-weights (~600MB) to the Hugging Face cache. Everything here runs on CPU — no
-GPU is needed for this tab. (The Gallery tab's notebook is the one part of
-this project that wants a GPU, and it runs on Colab, not locally — see
-[ControlNet stretch phase](#controlnet-stretch-phase) below.)
+The **Match a Photo** tab pulls in `scikit-learn`, `transformers`, and `torch`
+(already pinned in `requirements.txt`). The first time you use it, it
+downloads CLIP's model weights (~600 MB) to your Hugging Face cache.
+Everything runs on CPU — no GPU needed. (The one part of this project that
+does want a GPU is the Gallery tab's notebook, and that runs on Colab, not on
+your machine — see [ControlNet stretch phase](#controlnet-stretch-phase).)
 
 ## Run
 
@@ -74,42 +85,48 @@ this project that wants a GPU, and it runs on Colab, not locally — see
 streamlit run app.py
 ```
 
-**Describe tab** — type a mood, get a theme. The spec, the swatches and the
-guard report all appear *before* rendering, so you can reject a bad palette or
-fix a misidentified city without waiting on the map download. City, country and
-radius are extracted from your description and pre-filled as editable fields.
-Naming the city up front is faster: the map download then runs concurrently with
-the model call instead of after it.
+The app has three tabs:
 
-**Classic tab** — the 17 stock themes with swatch previews and 3/5/10/15 km
-distance presets. Unedited stock themes render as their author designed them;
-the guards run only if you change a colour.
+**Classic** — pick from the 17 built-in themes, preview their color swatches,
+and choose a distance preset (3/5/10/15 km). A stock theme renders exactly as
+its author designed it; the legibility guards only kick in if you edit a
+color.
 
-**Customize colors** — on either tab, expand the panel and adjust any of the
-nine independent colours. Edited palettes go through the same guards, and a
-re-render reuses the cached map data, so it costs only drawing time. `gradient_color`
-and `road_default` are derived and follow `bg` and `road_tertiary` automatically.
+**Customize colors** — on any tab, expand this panel to adjust any of the nine
+independent colors by hand. Edited palettes go through the same guards as
+generated ones, and re-rendering reuses the map data already downloaded, so it
+only costs drawing time. Two colors (`gradient_color`, `road_default`) are
+derived automatically from the others, so there's no picker for them.
 
-**Match a Photo tab** — upload a photo instead of describing one. A K-Means
-(k=6) cluster in CIELAB space extracts its palette, CLIP classifies the
-overall mood zero-shot (warm/cool/dark/pastel/vivid), and the clusters are
-assigned to poster roles by a documented, mood-aware rule set: lightest/
-darkest become background/text (flipped if the mood is "dark", so a genuinely
-dark photo produces a dark-background poster instead of being forced light);
-water and parks are picked by CIELAB hue match to blue/green; motorway and
-residential come from what's darkest/lightest of what's left (tie-broken
-toward redder for "warm" or highest-chroma for "vivid"); the three remaining
-road tiers are generated as an even lightness ramp between them. The result
-goes through the identical guards as every other theme source before
-rendering. See `aiposter/photo.py` for the full rule set with rationale.
+**Match a Photo** — upload a photo instead of picking a theme. Here's the
+pipeline: K-Means clustering (k=6) pulls out the photo's dominant colors in
+CIELAB color space (used instead of plain RGB because it matches human color
+perception more closely), CLIP classifies the photo's overall mood zero-shot
+(warm/cool/dark/pastel/vivid), and a documented rule set maps the extracted
+colors onto poster roles — lightest/darkest become background/text (flipped
+for a "dark" mood, so a genuinely dark photo doesn't get forced into a light
+poster), water and parks are matched by color to blue/green, and the
+remaining road tiers are built as an even lightness ramp between what's left.
+The result goes through the same legibility guards as every other theme
+source. See `aiposter/photo.py` for the full rule set with explanations.
 
-**Gallery tab** — read-only. Groups any `{city}_{style}.png` files it finds in
-`gallery/` by city and displays them; shows an honest "nothing here yet" empty
-state otherwise. Nothing on this tab runs a model or needs a GPU — the images
-are pre-generated offline by a Colab notebook and copied in. See
-[ControlNet stretch phase](#controlnet-stretch-phase) below.
+**Gallery** — read-only. Shows any `{city}_{style}.png` files found in
+`gallery/`, grouped by city, or a friendly "nothing here yet" message if the
+folder is empty. Nothing on this tab runs a model or needs a GPU — the images
+are generated offline by a Colab notebook and copied in afterward. See
+[ControlNet stretch phase](#controlnet-stretch-phase).
+
+> **Note:** there used to be a fourth tab, **Describe** (type a mood, get an
+> AI-generated theme). It's currently removed from the UI, but the pipeline
+> behind it is still here and works from the command line — see
+> [Without the UI](#without-the-ui) below, and
+> [Generation always returns something](#generation-always-returns-something)
+> for how it works under the hood.
 
 ### Without the UI
+
+This is currently the only way to reach the description-to-theme pipeline
+directly, since there's no Describe tab in the app right now:
 
 ```bash
 # generate a theme and inspect it, no rendering
@@ -149,6 +166,8 @@ python create_map_poster.py --city Paris --country France --theme noir
 
 ## How the theming layer works
 
+If you want to dig into the code, here's what lives where:
+
 | Module | Role |
 |---|---|
 | `aiposter/spec.py` | `PosterSpec` / `ThemeSpec` — the pydantic contract model output must satisfy |
@@ -165,6 +184,10 @@ python create_map_poster.py --city Paris --country France --theme noir
 
 ### Generation always returns something
 
+This is how the description-to-theme pipeline (used by
+`scripts/try_describe.py` and the evaluation harness) tries to always produce
+something usable, even when a model call fails:
+
 1. Ask `Qwen/Qwen2.5-7B-Instruct`.
 2. If the JSON fails validation, **one** repair round-trip carrying the
    validation error back to the model.
@@ -174,8 +197,8 @@ python create_map_poster.py --city Paris --country France --theme noir
 The repair message contains the validator's complaint and nothing else — no
 stack traces, no file paths, no environment details.
 
-`meta-llama/Llama-3.1-8B-Instruct` is deliberately not used: it is gated behind
-manual licence approval, so calls fail until a human is approved.
+`meta-llama/Llama-3.1-8B-Instruct` is deliberately not used: it's gated behind
+manual licence approval, so calls fail until a human approves access.
 
 ### Photo-to-theme pipeline
 
@@ -186,11 +209,12 @@ manual licence approval, so calls fail until a human is approved.
    five caption-phrased prompts: warm, cool, dark, pastel, vivid.
 3. Clusters are assigned to the nine independent theme fields by lightness
    order and CIELAB hue match, with the mood breaking ties between clusters
-   that are close in lightness (see the Match a Photo tab description above
-   for the exact rules).
+   that are close in lightness (see the Match a Photo description above for
+   the exact rules).
 4. The result is guarded and rendered through the identical path every other
-   theme source uses — Describe, Classic edits, and Match a Photo all
-   converge on the same `apply_palette_guards` call before a poster is drawn.
+   theme source uses — Classic edits and Match a Photo both converge on the
+   same `apply_palette_guards` call before a poster is drawn (and so does the
+   description pipeline, when used from the CLI).
 
 ### The guards
 
@@ -201,48 +225,48 @@ manual licence approval, so calls fail until a human is approved.
 
 When contrast fails, the **text** colour moves, never the background — the
 background is where the aesthetic intent lives. The correction binary-searches
-L\* for the smallest change that passes, so hue and chroma survive.
+lightness (L\*) for the smallest change that passes, so hue and saturation
+survive.
 
 When two road tiers are too close, the lower-priority tier is pushed along the
-ramp's lightness direction. `road_default` is excluded from the check because it
-duplicates another tier by convention in all 17 stock themes.
+ramp's lightness direction. `road_default` is excluded from the check because
+it duplicates another tier by convention in all 17 stock themes.
 
 Both thresholds live in `GuardConfig` and can be changed in one place.
 
 > **Worth knowing:** at ΔE ≥ 10, only 3 of the 17 stock themes would pass road
 > separation, and `sunset` fails contrast at 3.94:1. Generated themes are held
-> to a stricter bar than the shipped catalogue. That is a defensible choice —
-> hand-tuned designs earn latitude an automated palette has not — but if you
+> to a stricter bar than the shipped catalogue. That's a defensible choice —
+> hand-tuned designs earn latitude an automated palette hasn't — but if you
 > want parity with existing practice, lower `min_delta_e` to about 6.
 
-The colour maths is implemented directly rather than pulled from a library:
+The color math is implemented directly rather than pulled from a library:
 `colormath` is unmaintained and broken on numpy 2.x. The CIEDE2000
 implementation is verified against 29 published reference pairs from Sharma,
-Wu & Dalal (2005), including the arctangent-discontinuity cases that break naive
-implementations.
+Wu & Dalal (2005), including the arctangent-discontinuity cases that break
+naive implementations.
 
 ## Performance
 
 Every generation records per-stage timings — `llm_ms`, `validate_ms`,
 `palette_ms`, `mood_ms`, `guard_ms`, `geocode_ms`, `graph_ms`, `render_ms` —
-surfaced in a "Performance"
-expander in the UI and written to the evaluation CSV. A single end-to-end number
-cannot tell you whether a slow run was the model, the geocoder, the OSM download
-or matplotlib; these can.
+surfaced in a "Performance" expander in the UI and written to the evaluation
+CSV. A single end-to-end number can't tell you whether a slow run was the
+model, the geocoder, the OSM download, or matplotlib; these can.
 
 Three things keep the common path quick:
 
-- **Overlapping** — when the city is known up front, the OSM download runs on a
-  second thread while the model is still thinking. When it is not known, there
-  is genuinely nothing to prefetch, and the pipeline says so rather than
+- **Overlapping** — when the city is known up front, the OSM download runs on
+  a second thread while the model is still thinking. When it's not known,
+  there's genuinely nothing to prefetch, and the pipeline says so rather than
   pretending otherwise.
-- **Response caching** — repeated descriptions are served from disk, keyed by a
-  hash of the normalised prompt plus the model id and prompt version, so editing
-  the prompt or switching models does not serve stale answers.
-- **Fetch/draw separation** — map data is fetched explicitly before drawing, so
-  a colour edit re-renders from cache with no network at all. Measured on a
-  cached city, a re-render after a colour tweak costs ~4 s, essentially all of
-  it matplotlib.
+- **Response caching** — repeated descriptions are served from disk, keyed by
+  a hash of the normalised prompt plus the model id and prompt version, so
+  editing the prompt or switching models never serves a stale answer.
+- **Fetch/draw separation** — map data is fetched explicitly before drawing,
+  so a color edit re-renders from cache with no network at all. Measured on a
+  cached city, a re-render after a color tweak costs ~4 s, almost all of it
+  matplotlib.
 
 ## Offline demo mode
 
@@ -251,9 +275,10 @@ water/parks features) for 10 recognizable, geographically diverse cities —
 Tokyo, Paris, New York, London, Pune, Venice, Barcelona, Dubai, Singapore,
 Cairo — at the Classic tab's default 3km radius, using the same
 `aiposter.render.prefetch` the app itself calls, so there's no separate fetch
-logic to keep in sync. This is NFR3: once warm, only the Describe tab's LLM
-call needs internet — Classic, Match a Photo (aside from CLIP's one-time
-weight download) and Gallery all work fully offline.
+logic to keep in sync. Once warm, only the description pipeline's LLM call
+(reachable via the CLI, see [Without the UI](#without-the-ui)) needs internet
+— Classic, Match a Photo (aside from CLIP's one-time weight download), and
+Gallery all work fully offline.
 
 It's idempotent (`render.is_cached` skips anything already warm), so
 re-running before a demo costs nothing if the cache is already populated.
@@ -264,12 +289,12 @@ python scripts/precache_showcase.py
 
 ## Evaluation harness
 
-`scripts/evaluate.py` (FR5.1) runs a fixed prompt set through the Describe
-pipeline and writes one CSV row per prompt — `first_attempt_valid`,
-`repair_attempted`/`repair_succeeded`, `backup_used`, `fallback_used`,
-`guard_passed`/`guard_violations`/`guard_corrections`, and the full per-stage
-latency breakdown plus wall-clock time — then prints validity, repair, guard
-and latency rates against the PRD's §7 targets.
+`scripts/evaluate.py` (FR5.1) runs a fixed prompt set through the
+description-to-theme pipeline and writes one CSV row per prompt —
+`first_attempt_valid`, `repair_attempted`/`repair_succeeded`, `backup_used`,
+`fallback_used`, `guard_passed`/`guard_violations`/`guard_corrections`, and
+the full per-stage latency breakdown plus wall-clock time — then prints
+validity, repair, guard, and latency rates against the PRD's §7 targets.
 
 `PROMPTS` currently has 30 entries — moods, named and unnamed cities, explicit
 named-color requests ("crimson rooftops and gold domes"), and a few
@@ -279,7 +304,7 @@ deliberately vague ones to probe the failure paths. The PRD's target is
 It paces itself (`--delay`, default 3 s) because free-tier inference
 rate-limits a rapid burst, and a throttled request is indistinguishable in
 the aggregate from a model that cannot produce valid JSON — an unpaced run
-reports a validity figure that is really a quota figure. The summary
+reports a validity figure that's really a quota figure. The summary
 separates transport failures from schema failures for the same reason.
 
 ```bash
@@ -335,8 +360,8 @@ to participants.
 
 `colab/controlnet_restyle.ipynb` (FR6) is deliberately self-contained — it
 never imports from `aiposter`, and nothing in the main app imports from it —
-so a Colab disconnect, an OOM, or a bad generation has zero effect on the
-live demo. Run on Colab with a free T4 GPU runtime, it:
+so a Colab disconnect, an out-of-memory error, or a bad generation has zero
+effect on the live demo. Run on Colab with a free T4 GPU runtime, it:
 
 1. Fetches a city's road network via `osmnx` (the same call
    `create_map_poster.py` makes) and exports it as clean black-on-white
@@ -349,8 +374,8 @@ live demo. Run on Colab with a free T4 GPU runtime, it:
 Copying that output into the repo's `gallery/` directory (see
 [gallery/README.md](gallery/README.md) for the exact naming convention) is
 the only thing that connects it to the app — the Gallery tab picks the files
-up with no code changes. The notebook has not been run in this environment
-(no GPU here); every cell is unexecuted, and its own first cell says so.
+up with no code changes. The notebook hasn't been run in this environment (no
+GPU here); every cell is unexecuted, and its own first cell says so.
 
 ## Tests
 
@@ -359,7 +384,7 @@ pytest tests/ -q
 ```
 
 210 tests, none of which touch the network. They cover the CIEDE2000 reference
-vectors, LAB round-tripping across every colour the project ships, guard
+vectors, LAB round-tripping across every color the project ships, guard
 idempotence against adversarial palettes, schema rejection cases, prompt
 injection isolation, the theme-injection regression described below, and (new
 this round) photo-upload validation and EXIF-stripping, palette clustering,
@@ -369,17 +394,17 @@ and the mood-aware role-assignment rules.
 
 ## A note on the upstream integration
 
-`create_map_poster.py` reads its colours from a module-level `THEME` global that
-is only assigned inside its `if __name__ == "__main__":` block. Run as a script
-that is fine. Imported — as this app does — `THEME` stays empty and the first
-colour lookup raises a bare `KeyError`, *after* the slow OSM download has already
-completed.
+`create_map_poster.py` reads its colors from a module-level `THEME` global
+that's only assigned inside its `if __name__ == "__main__":` block. Run as a
+script, that's fine. Imported — as this app does — `THEME` stays empty and
+the first color lookup raises a bare `KeyError`, *after* the slow OSM
+download has already completed.
 
-Since upstream is not modified, `aiposter/render.py` assigns the module
-attribute directly, under a lock that also serialises matplotlib's global figure
-state. It validates that every required colour is present *before* the network
-fetch, so a malformed theme fails in milliseconds instead of minutes. A
-regression test asserts all 11 colours are live at call time.
+Since upstream isn't modified, `aiposter/render.py` assigns the module
+attribute directly, under a lock that also serializes matplotlib's global
+figure state. It validates that every required color is present *before* the
+network fetch, so a malformed theme fails in milliseconds instead of minutes.
+A regression test asserts all 11 colors are live at call time.
 
 ## Project docs
 
@@ -391,13 +416,15 @@ regression test asserts all 11 colours are live at call time.
 
 ## Roadmap
 
-**Implemented**: Describe tab, Classic tab, Match a Photo tab (K-Means
-palette extraction + CLIP mood), Gallery tab (scaffold, awaiting
-Colab-generated images), guards, evaluation harness (30 of the PRD's ~100
-target prompts), OSM pre-cache for offline demo mode, blind-study scaffold.
+**Implemented**: Classic tab, Match a Photo tab (K-Means palette extraction +
+CLIP mood), Gallery tab (scaffold, awaiting Colab-generated images), the
+description-to-theme pipeline (available via CLI, not yet wired back into the
+UI), legibility guards, evaluation harness (30 of the PRD's ~100 target
+prompts), OSM pre-cache for offline demo mode, blind-study scaffold.
 
-**Remaining**: extend the evaluation harness toward ~100 prompts with a clean
-(larger-`--delay`) latency run; actually execute
+**Remaining**: decide whether/how to bring the description pipeline back into
+the UI as a tab; extend the evaluation harness toward ~100 prompts with a
+clean (larger-`--delay`) latency run; actually execute
 `colab/controlnet_restyle.ipynb` on real Colab hardware and populate
 `gallery/`; fill in and run the blind preference study with real
 participants.
