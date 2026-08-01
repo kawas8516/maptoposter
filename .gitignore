@@ -42,8 +42,11 @@ htmlcov/
 secrets.toml
 
 # AI-generated posters
-posters/generated/
+posters/
 
 # Evaluation runs - regenerable, and they accumulate one CSV per run.
 # Force-add a milestone run when it is worth keeping: git add -f runs/<file>.csv
 runs/
+
+# Stray git-worktree gitlinks
+.claude/worktrees/
