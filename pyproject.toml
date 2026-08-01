@@ -44,6 +44,9 @@ dependencies = [
     "scikit-learn==1.5.2",
     "transformers==4.46.3",
     "torch==2.6.0",
+    "huggingface_hub==1.25.1",
+    "pydantic==2.13.4",
+    "streamlit==1.60.0",
 ]
 
 [build-system]
