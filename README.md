@@ -408,6 +408,7 @@ A regression test asserts all 11 colors are live at call time.
 
 ## Project docs
 
+- [EVALUATION_REPORT.md](EVALUATION_REPORT.md) — test results and metrics, target-vs-actual against the PRD, for evaluators
 - [prd.md](prd.md) — requirements and success metrics
 - [security.md](security.md) — threat model, secrets handling, input validation
 - [docs/UPSTREAM_README.md](docs/UPSTREAM_README.md) — the original CLI documentation
