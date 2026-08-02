@@ -24,6 +24,7 @@ case the feature is re-enabled later.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import streamlit as st
@@ -340,8 +341,16 @@ def photo_tab() -> None:
 GALLERY_DIR = Path(__file__).resolve().parent / "gallery"
 
 
+#: Trailing ``_{hash}`` identifying one generated image -- 16 hex chars, same
+#: length/format as the Streamlit app's own ``poster_{hash}.png`` convention
+#: (see ``aiposter/render.py``). Lets multiple generations of the same
+#: city/style coexist under distinct filenames instead of overwriting.
+_GALLERY_HASH_RE = re.compile(r"^[0-9a-f]{16}$")
+
+
 def _gallery_images() -> dict[str, list[tuple[str, Path]]]:
-    """``{city: [(style, path), ...]}`` for every ``{city}_{style}.png`` found.
+    """``{city: [(style, path), ...]}`` for every ``{city}_{style}_{hash}.png``
+    found (hash = 16-hex-char content digest, see ``_GALLERY_HASH_RE``).
 
     Any file not matching the naming convention is silently skipped -- an
     unexpected file in this folder is not an error, just not shown.
@@ -351,9 +360,10 @@ def _gallery_images() -> dict[str, list[tuple[str, Path]]]:
         return grouped
     for path in sorted(GALLERY_DIR.glob("*.png")):
         stem = path.stem
-        if "_" not in stem:
+        rest, sep, digest = stem.rpartition("_")
+        if not sep or not _GALLERY_HASH_RE.match(digest) or "_" not in rest:
             continue
-        city, _, style = stem.partition("_")
+        city, _, style = rest.partition("_")
         grouped.setdefault(city, []).append((style.replace("_", " "), path))
     return grouped
 

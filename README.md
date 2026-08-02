@@ -110,7 +110,7 @@ remaining road tiers are built as an even lightness ramp between what's left.
 The result goes through the same legibility guards as every other theme
 source. See `aiposter/photo.py` for the full rule set with explanations.
 
-**Gallery** — read-only. Shows any `{city}_{style}.png` files found in
+**Gallery** — read-only. Shows any `{city}_{style}_{hash}.png` files found in
 `gallery/`, grouped by city, or a friendly "nothing here yet" message if the
 folder is empty. Nothing on this tab runs a model or needs a GPU — the images
 are generated offline by a Colab notebook and copied in afterward. See
@@ -369,7 +369,9 @@ effect on the live demo. Run on Colab with a free T4 GPU runtime, it:
 2. Loads Stable Diffusion 1.5 + `lllyasviel/sd-controlnet-scribble` via
    `diffusers` and restyles that layout in 3 styles (watercolor, ink wash,
    cyberpunk) across 3 sample cities (Paris, Tokyo, Venice).
-3. Saves a review grid plus individual `{city}_{style}.png` files.
+3. Saves a review grid plus individual `{city}_{style}_{hash}.png` files (the
+   hash is a 16-hex-char content digest, so re-running doesn't clobber a
+   previous generation of the same city/style).
 
 Copying that output into the repo's `gallery/` directory (see
 [gallery/README.md](gallery/README.md) for the exact naming convention) is
