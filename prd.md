@@ -6,6 +6,15 @@
 > **v1.1 changes:** FR3 (Photo-to-Poster) deferred to Phase 2b behind the §7 benchmarks;
 > new FR7 (theme chooser & editor); latency NFRs added; the "12 hex fields" figure
 > corrected to 11 after reading the upstream theme files.
+>
+> **Post-launch note (not a versioned revision):** the live app has since diverged from
+> what's documented below in two ways this PRD hasn't been formally updated to reflect:
+> the **Describe tab** (FR2's UI surface) was removed from the Streamlit app — FR2's
+> pipeline is unchanged and still reachable via `scripts/try_describe.py` (see README) —
+> and **Match a Photo (FR3)** has since been fully implemented, not shipped as the
+> placeholder FR1.1/§5b describe. Left as-is below rather than rewritten, since this is
+> a decision record of what was approved, not a live spec; see the inline notes at
+> FR1.1, FR2, and FR7.3 for exactly where it diverges.
 
 ---
 
@@ -51,11 +60,14 @@ The expressive bottleneck of existing map-poster generators is specification, no
 ## 5. Functional Requirements
 
 ### FR1 — Web application (Streamlit)
-- FR1.1: Three tabs: Describe, Classic, and Match a Photo. Match a Photo ships as an honest "coming soon" placeholder describing its designed pipeline until FR3 is undeferred (see §5b).
+- FR1.1: Three tabs: Describe, Classic, and Match a Photo. Match a Photo ships as an honest "coming soon" placeholder describing its designed pipeline until FR3 is undeferred (see §5b). *(Post-launch: the live app now ships Classic, a fully-implemented Match a Photo, and a Gallery tab (FR6.2) — the Describe tab has been removed from the UI. See the note at the top of this document.)*
 - FR1.2: Poster preview + high-resolution PNG download on every tab.
 - FR1.3: Disk caching of OSM graphs (keyed city+distance); repeat renders avoid network.
 
 ### FR2 — Text-to-Poster (Describe)
+
+*Post-launch: the Describe tab this section describes has been removed from the live UI; the pipeline below is unchanged and reachable via `scripts/try_describe.py` (see README).*
+
 - FR2.1: LLM call via Hugging Face Inference API (free tier; Qwen2.5 instruct) with JSON-schema-constrained system prompt + 3 few-shot examples.
 - FR2.2: Output validated by pydantic `PosterSpec`: `{city, country, lat/long override, distance, theme: {11 hex fields + name + description}}`.
 - FR2.3: On validation failure: exactly one repair round-trip with the error message; then fallback to nearest stock theme. The user always receives a poster.
@@ -79,7 +91,7 @@ Brings the app to parity with the reference site (maptoposter.penk.in) and makes
 
 - FR7.1: Theme dropdown listing all 17 stock themes, with a swatch-row preview of the selected theme's colors shown *before* generating.
 - FR7.2: Distance presets matching the reference site: 3 km (default), 5 km, 10 km, 15 km.
-- FR7.3: Color editing — an expandable "Customize colors" panel with a `st.color_picker` per editable theme field (11 colors; `gradient_color` is derived from `bg` and `road_default` from `road_tertiary`, so 9 are independently editable). Pre-filled from the selected stock theme **or** from an AI-generated theme on the Describe tab. Edited palettes run through the same FR4 WCAG/CIEDE2000 guards before rendering; any auto-correction is shown to the user with before/after values.
+- FR7.3: Color editing — an expandable "Customize colors" panel with a `st.color_picker` per editable theme field (11 colors; `gradient_color` is derived from `bg` and `road_default` from `road_tertiary`, so 9 are independently editable). Pre-filled from the selected stock theme **or** from an AI-generated theme (originally via the Describe tab; that tab has since been removed from the UI, though the pipeline is still reachable via CLI — see FR2's note). Edited palettes run through the same FR4 WCAG/CIEDE2000 guards before rendering; any auto-correction is shown to the user with before/after values.
 - FR7.4: "Previous posters" history strip — the last ~6 posters generated in this session shown as thumbnails, click to re-download. Session state only, no disk persistence (security.md §6).
 
 ## 5b. Deferred to Phase 2b

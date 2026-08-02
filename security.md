@@ -27,7 +27,10 @@ A locally run (or small-scale deployed) Streamlit app that accepts two untrusted
 
 ## 3. Input Handling
 
-### 3.1 Free-text prompts (Describe tab)
+### 3.1 Free-text prompts (description-to-theme CLI script)
+
+*Post-launch note: this pipeline was originally exposed as a "Describe" tab in the Streamlit app; that tab has since been removed from the UI. The pipeline itself, and everything below, is unchanged and still reachable via `scripts/try_describe.py` (see README).*
+
 - Enforce max prompt length (e.g. 500 chars) before the LLM call.
 - Treat prompt content as untrusted data inside the system prompt; the LLM's only allowed effect is producing JSON — no tools, no code execution.
 - Never interpolate user text into shell commands, file paths, or eval'd code.
@@ -59,7 +62,7 @@ A locally run (or small-scale deployed) Streamlit app that accepts two untrusted
 ## 6. Privacy & Data Retention
 
 - Uploaded photos: processed transiently; not stored beyond the session; never transmitted to any third party (palette + CLIP run locally on CPU).
-- Text prompts: sent to the HF Inference API only — disclose this in the app UI ("your description is sent to a hosted model"). No other user data leaves the machine.
+- Text prompts: sent to the HF Inference API only. When run via the description CLI script (no longer a UI tab — see §3.1), whoever runs it should be aware the description is sent to a hosted model. No other user data leaves the machine.
 - Evaluation CSVs contain prompts + metrics only — no user identifiers.
 - Blind study: collect no names/emails in the Google Form; responses anonymous; report aggregates only.
 - Generated posters cached locally may embed city names only — no personal data.
