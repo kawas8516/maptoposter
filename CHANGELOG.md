@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Updated `.gitignore` with poster outputs, Python build artifacts, IDE files, and OS-specific files
+- Moved `test/all_variations.sh` (upstream's CLI smoke-test script) to `scripts/all_variations.sh`, alongside this fork's other CLI utility scripts -- resolves the confusing test/ vs tests/ folder naming
 
 ---
 
