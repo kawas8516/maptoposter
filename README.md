@@ -1,5 +1,7 @@
 # AI Poster Studio
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/kawas8516/maptoposter)
+
 Turn any city into a clean, minimalist map poster. Pick from 17 built-in
 themes, or upload a photo and let the app build a matching color palette from
 it. Every palette — generated or hand-picked — is automatically checked for
