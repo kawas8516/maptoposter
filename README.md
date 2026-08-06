@@ -27,6 +27,16 @@ turns a sentence like this into a full color theme:
 
 ---
 
+## In my own words
+
+I forked an existing open-source map poster generator and built an AI layer on top of it. The core idea: instead of picking from a fixed list of 17 color themes, you can also describe a mood in plain English (currently via the CLI — see [Without the UI](#without-the-ui)), or upload a photo through the app, and it generates a matching theme for you.
+
+The interesting engineering problem was: AI output can't be trusted blindly. So every theme — however it's generated — gets validated against a strict schema before it touches any file path or network call, and then checked against two accessibility rules: WCAG contrast, so the text is actually readable, and a color-distance formula called CIEDE2000, so different road types don't blur into each other. If a generated palette fails either check, the app automatically nudges the color until it passes, instead of just shipping something illegible.
+
+For the photo feature, I used K-Means clustering to pull out a photo's dominant colors, and CLIP to classify its overall mood — warm, cool, dark, that kind of thing — and wrote the rules that map those into a poster theme.
+
+I also built an evaluation harness that runs a batch of prompts through the pipeline and measures how often it succeeds, how often it needs a retry, and how fast it is — so I have actual numbers backing up "it works," not just a demo that happened to work once (see [EVALUATION_REPORT.md](EVALUATION_REPORT.md)). And I wrote 210 automated tests, including checking my color-math implementation against published reference values from a real color-science paper, since I didn't want to just trust that I'd implemented the formula right.
+
 ## Why
 
 maptoposter ships 17 hand-written theme files. They look great, but they're a
