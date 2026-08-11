@@ -10,13 +10,13 @@ app's Gallery tab requires a GPU or that notebook at runtime.**
 followed by a 16-character hex hash of the generated image (same convention as the Streamlit
 app's own `poster_{hash}.png` files, see `aiposter/render.py`). The hash means re-running the
 notebook doesn't overwrite a previous generation of the same city/style — both just coexist
-under different filenames. For example:
+under different filenames. Real examples currently shipped in this folder:
 
 ```
-paris_watercolor_a1b2c3d4e5f6a7b8.png
-paris_ink_wash_1122334455667788.png
-paris_cyberpunk_99aabbccddeeff00.png
-tokyo_watercolor_0123456789abcdef.png
+paris_watercolor_4bd38f35e38317b0.png
+paris_ink_wash_8d8d64a5b64aee7a.png
+paris_cyberpunk_ff14f83b8e447cf4.png
+tokyo_watercolor_a4ae51a691e73b40.png
 ```
 
 The app's Gallery tab groups files by the `{city}` prefix and displays the `{style}` segment as
@@ -32,5 +32,6 @@ pattern (including the earlier two-part `{city}_{style}.png` scheme) is skipped,
 4. Download the notebook's `gallery_output/gallery/` folder and copy its PNGs in here.
 5. Commit — that's it, the Gallery tab will pick them up on the next app run, no code changes.
 
-Empty for now: the app's Gallery tab shows an honest "nothing here yet" placeholder until you
-do this.
+**Populated:** the notebook has been run on a real Colab T4 GPU, and this folder currently
+ships all 3 sample cities (Paris, Tokyo, Venice) × 3 styles (watercolor, ink-wash, cyberpunk) —
+9 images. Re-running the notebook for more cities/styles just adds more files alongside these.

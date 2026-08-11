@@ -397,8 +397,8 @@ effect on the live demo. Run on Colab with a free T4 GPU runtime, it:
 Copying that output into the repo's `gallery/` directory (see
 [gallery/README.md](gallery/README.md) for the exact naming convention) is
 the only thing that connects it to the app — the Gallery tab picks the files
-up with no code changes. The notebook hasn't been run in this environment (no
-GPU here); every cell is unexecuted, and its own first cell says so.
+up with no code changes. **The notebook has been run** on a real Colab T4
+GPU — `gallery/` is populated with all 3 sample cities × 3 styles (9 images).
 
 ## Tests
 

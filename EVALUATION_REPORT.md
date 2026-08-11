@@ -15,7 +15,7 @@ This file exists for anyone grading or reviewing this project (instructor, evalu
 | Are the legibility guarantees real, not just claimed? | Yes — 30/30 (100%) guarded themes passed WCAG + CIEDE2000 | [§3](#3-evaluation-harness-results) |
 | Is it fast enough to demo? | Mostly — p50 5.69s (target ≤15s ✅), p95 confounded by API rate-limiting (see caveat) | [§3](#3-evaluation-harness-results) |
 | Did it meet its own written requirements (PRD §7)? | 5 of 8 metrics directly confirmed; 3 need a fuller run to confirm at scale | [§4](#4-prd-success-metrics-target-vs-actual) |
-| What's built vs. still open? | 3 live UI tabs + guards + evaluation harness shipped; ControlNet gallery and blind study are scaffolded but not yet executed | [§5](#5-roadmap-implemented-vs-remaining) |
+| What's built vs. still open? | 3 live UI tabs + guards + evaluation harness + ControlNet gallery (9 images, 3 cities × 3 styles) shipped; blind study is scaffolded but not yet run | [§5](#5-roadmap-implemented-vs-remaining) |
 
 ---
 
@@ -93,7 +93,7 @@ Direct comparison against [prd.md §7](prd.md#7-success-metrics):
 **Implemented and working today:**
 - Classic tab — all 17 stock themes, swatch previews, distance presets
 - Match a Photo tab — K-Means palette extraction (CIELAB) + CLIP zero-shot mood classification, fully implemented (not a placeholder)
-- Gallery tab — scaffold, reads pre-generated images from `gallery/`
+- Gallery tab — populated: `colab/controlnet_restyle.ipynb` has been run on a real Colab T4 GPU, `gallery/` ships 9 images (3 cities × 3 styles)
 - Legibility guards — WCAG contrast + CIEDE2000, verified against 29 published reference pairs
 - Description-to-theme pipeline — implemented and tested, currently reachable via CLI (`scripts/try_describe.py`) rather than a UI tab (see [prd.md's post-launch note](prd.md))
 - Evaluation harness — working end-to-end, 30 of the PRD's ~100 target prompts run
@@ -102,8 +102,8 @@ Direct comparison against [prd.md §7](prd.md#7-success-metrics):
 
 **Remaining / open items** (also listed in [README's Roadmap](README.md#roadmap)):
 - Extend the evaluation harness to ~100 prompts with a clean, larger-`--delay` run (needed to confirm §7's validity/latency targets at full scale)
-- Execute `colab/controlnet_restyle.ipynb` on real Colab hardware and populate `gallery/` (notebook is written and dependency-conflict-tested, but no cell has actually been run — no GPU in the environment that wrote it)
 - Run the blind preference study with real participants
+- Optionally extend the ControlNet gallery beyond the initial 3 cities × 3 styles
 - Decide whether to bring the description pipeline back into the UI as a tab, or leave it CLI-only
 
 ---
@@ -186,4 +186,4 @@ python scripts/evaluate.py --limit 30 --delay 8   # cleaner latency numbers, avo
 - [prd.md](prd.md) — original requirements and success-metric definitions this report measures against
 - [security.md](security.md) — threat model and data-handling practices
 - [docs/blind_study/README.md](docs/blind_study/README.md) — blind preference study scaffold (not yet run — see §5)
-- [gallery/README.md](gallery/README.md) — ControlNet gallery naming convention (not yet populated — see §5)
+- [gallery/README.md](gallery/README.md) — ControlNet gallery naming convention (populated, 9 images)
