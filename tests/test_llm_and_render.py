@@ -155,6 +155,12 @@ def test_network_error_text_is_truncated_and_typed():
     assert len(error) < 300
 
 
+def test_unauthorized_error_explains_token_permission():
+    generator, _ = generator_with([RuntimeError("401 Client Error: Unauthorized")] * 4)
+    result = generator.generate("a foggy harbour")
+    assert "Inference Providers" in result.trace.attempts[0].error
+
+
 def test_trace_records_latency_for_every_attempt():
     generator, _ = generator_with(["junk", VALID_JSON])
     result = generator.generate("a moody rainy Tokyo")
@@ -308,3 +314,43 @@ def test_output_path_is_stable_and_theme_sensitive():
     assert render.output_path("Tokyo", 12000, noir) == render.output_path("Tokyo", 12000, noir)
     assert render.output_path("Tokyo", 12000, noir) != render.output_path("Tokyo", 12000, ocean)
     assert render.output_path("Tokyo", 12000, noir) != render.output_path("Tokyo", 9000, noir)
+
+
+class _JsonModeRejectingClient:
+    """A provider that answers a bare 400 whenever response_format is sent."""
+
+    def __init__(self):
+        self.calls = []
+
+    def chat_completion(self, **kwargs):
+        self.calls.append(("json" if "response_format" in kwargs else "plain", kwargs["model"]))
+        if "response_format" in kwargs:
+            error = RuntimeError("(Request ID: Root=1-abc)\n\nBad request:")
+            error.response = mock.Mock(status_code=400)
+            raise error
+        message = mock.Mock(content=VALID_JSON)
+        return mock.Mock(choices=[mock.Mock(message=message)])
+
+
+def test_bare_400_on_json_mode_retries_without_it_for_that_model_only():
+    generator = ThemeGenerator(token="fake", use_cache=False)
+    client = _JsonModeRejectingClient()
+    generator._client = client
+    assert generator._call("backup/model", [{"role": "user", "content": "x"}]) == VALID_JSON
+    assert generator._call("backup/model", [{"role": "user", "content": "x"}]) == VALID_JSON
+    assert client.calls == [("json", "backup/model"), ("plain", "backup/model"), ("plain", "backup/model")]
+    # Another model still gets JSON mode first.
+    generator._call("primary/model", [{"role": "user", "content": "x"}])
+    assert client.calls[3] == ("json", "primary/model")
+
+
+def test_other_errors_are_not_mistaken_for_a_json_mode_rejection():
+    generator = ThemeGenerator(token="fake", use_cache=False)
+    client = mock.Mock()
+    error = RuntimeError("401 Client Error: Unauthorized")
+    error.response = mock.Mock(status_code=401)
+    client.chat_completion.side_effect = error
+    generator._client = client
+    with pytest.raises(RuntimeError, match="401"):
+        generator._call("m", [{"role": "user", "content": "x"}])
+    assert client.chat_completion.call_count == 1

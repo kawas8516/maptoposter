@@ -173,6 +173,18 @@ def do_render(theme: dict, city: str, country: str, distance: int, timings: Timi
     try:
         with st.spinner(spinner):
             path, timings = pipeline.render_poster(theme, city, country, distance, timings)
+    except render.MapDataUnavailable as exc:
+        st.error(f"Couldn't reach OpenStreetMap for {city}: {exc}")
+        return
+    except RuntimeError as exc:
+        if "Failed to retrieve street network data" not in str(exc):
+            st.error(f"Rendering failed: {exc}")
+            return
+        st.error(
+            f"OpenStreetMap didn't return street data for {city}. "
+            "The server may be busy — please try again in a minute."
+        )
+        return
     except Exception as exc:  # noqa: BLE001 - surface any failure to the user
         st.error(f"Rendering failed: {exc}")
         return

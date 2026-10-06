@@ -168,6 +168,7 @@ def render_poster(
     cached = render.is_cached(city, country, distance)
     with timings.measure("graph_ms", "cached" if cached else "downloaded"):
         if not cached:
+            render.use_reachable_overpass()  # raises MapDataUnavailable if none answers
             render.prefetch(city, country, distance)
 
     with timings.measure("render_ms"):

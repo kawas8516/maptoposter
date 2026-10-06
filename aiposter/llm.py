@@ -37,8 +37,9 @@ from . import fallback, llm_cache, prompts
 from .spec import PosterSpec, response_format
 from .timing import Timings
 
-PRIMARY_MODEL = "Qwen/Qwen2.5-7B-Instruct"
-BACKUP_MODEL = "Qwen/Qwen2.5-72B-Instruct"
+#: Overridable from the environment so a model swap needs no code change.
+PRIMARY_MODEL = os.environ.get("AIPOSTER_PRIMARY_MODEL", "Qwen/Qwen2.5-7B-Instruct")
+BACKUP_MODEL = os.environ.get("AIPOSTER_BACKUP_MODEL", "Qwen/Qwen2.5-72B-Instruct")
 
 #: Seconds before a single inference call is abandoned (security.md §5).
 REQUEST_TIMEOUT = 60.0
@@ -235,6 +236,8 @@ class ThemeGenerator:
         self.timeout = timeout
         self._token = token if token is not None else resolve_token()
         self._use_response_format = use_response_format
+        #: Models whose provider rejected ``response_format``; asked in plain mode.
+        self._no_response_format: set[str] = set()
         self._use_cache = use_cache
         self._client: Any = None
 
@@ -250,7 +253,9 @@ class ThemeGenerator:
 
         Provider support for ``response_format`` varies, so a rejection is
         retried once without it — the prompt, not the provider feature, is what
-        actually keeps output on-schema.
+        actually keeps output on-schema. Some providers name the parameter in
+        their error; others (the 72B backup's) answer a bare "400 Bad request",
+        so any 400 counts as a rejection. Only that model stops using JSON mode.
         """
         client = self._get_client()
         kwargs: dict[str, Any] = {
@@ -260,14 +265,14 @@ class ThemeGenerator:
             "temperature": TEMPERATURE,
         }
 
-        if self._use_response_format:
+        if self._use_response_format and model not in self._no_response_format:
             try:
                 completion = client.chat_completion(**kwargs, response_format=response_format())
                 return completion.choices[0].message.content or ""
             except Exception as exc:  # noqa: BLE001 - provider errors are opaque
-                if "response_format" not in str(exc).lower() and "json_schema" not in str(exc).lower():
+                if not _rejects_response_format(exc):
                     raise
-                self._use_response_format = False
+                self._no_response_format.add(model)
 
         completion = client.chat_completion(**kwargs)
         return completion.choices[0].message.content or ""
@@ -368,10 +373,24 @@ class ThemeGenerator:
         return GenerationResult(theme=theme, spec=None, trace=trace, timings=timings)
 
 
+def _rejects_response_format(exc: Exception) -> bool:
+    """Whether a provider error means "this request's ``response_format`` isn't supported"."""
+    text = str(exc).lower()
+    if "response_format" in text or "json_schema" in text:
+        return True
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    return status == 400 or "bad request" in text
+
+
 def _ms(started: float) -> float:
     return (time.perf_counter() - started) * 1000.0
 
 
 def _network_error(exc: Exception) -> str:
     """A short, non-leaky description of a transport failure."""
+    if "401" in str(exc):
+        return (
+            "HF token rejected (401): enable 'Make calls to Inference Providers' "
+            "on the token at huggingface.co/settings/tokens"
+        )
     return f"{type(exc).__name__}: {str(exc)[:200]}"

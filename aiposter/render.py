@@ -108,6 +108,62 @@ def compensated_distance(distance: int, width: float = 12, height: float = 16) -
     return distance * (max(height, width) / min(height, width)) / 4
 
 
+#: Overpass servers to try, in order, in osmnx's base-URL format. The engine
+#: only knows osmnx's default (overpass-api.de), which refuses connections
+#: from some hosts (e.g. Streamlit Cloud). Override with OVERPASS_URLS.
+OVERPASS_ENDPOINTS: tuple[str, ...] = tuple(
+    url.strip().rstrip("/")
+    for url in os.environ.get(
+        "OVERPASS_URLS",
+        "https://overpass-api.de/api,"
+        "https://overpass.private.coffee/api,"
+        "https://maps.mail.ru/osm/tools/overpass/api,"
+        "https://overpass.kumi.systems/api",
+    ).split(",")
+    if url.strip()
+)
+
+
+class MapDataUnavailable(RuntimeError):
+    """No Overpass server could be reached."""
+
+    def __init__(self, errors: list[str]) -> None:
+        self.errors = errors
+        super().__init__(
+            f"OpenStreetMap's map servers are unreachable right now (tried {len(errors)}). "
+            "Please try again in a few minutes."
+        )
+
+
+def use_reachable_overpass() -> str:
+    """Point osmnx at the first Overpass server that answers, and return its host.
+
+    The engine then downloads exactly as before, just from a server that is up.
+    Raises ``MapDataUnavailable`` when none answers.
+    """
+    import osmnx as ox
+    import requests
+
+    errors = []
+    for url in OVERPASS_ENDPOINTS:
+        host = url.split("/")[2]
+        try:
+            # Same User-Agent osmnx sends: overpass-api.de answers 406 to a
+            # generic client, which would wrongly mark it as down.
+            response = requests.get(
+                f"{url}/status", headers={"User-Agent": ox.settings.http_user_agent}, timeout=10
+            )
+        except requests.RequestException as exc:
+            errors.append(f"{host}: {type(exc).__name__}")
+            continue
+        if response.status_code == 200:
+            ox.settings.overpass_url = url
+            return host
+        errors.append(f"{host}: HTTP {response.status_code}")
+    print(f"No Overpass server reachable: {'; '.join(errors)}")
+    raise MapDataUnavailable(errors)
+
+
 def prefetch(city: str, country: str, distance: int) -> Optional[tuple[float, float]]:
     """Warm the geocode and OSM caches for a city ahead of rendering.
 

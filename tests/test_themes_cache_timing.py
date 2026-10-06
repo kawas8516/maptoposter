@@ -284,9 +284,11 @@ def test_cached_render_does_not_refetch(isolated_cache):
     theme = themes.get("noir")
     with mock.patch.object(render, "geocode", return_value=(18.5, 73.8)), \
          mock.patch.object(render, "is_cached", return_value=True), \
+         mock.patch.object(render, "use_reachable_overpass") as pick_server, \
          mock.patch.object(render, "prefetch") as prefetch, \
          mock.patch.object(render, "render", return_value=render.OUTPUT_DIR / "x.png"):
         _, timings = pipeline.render_poster(theme, "Pune", "India", 3000)
+    pick_server.assert_not_called()
     prefetch.assert_not_called()
     assert timings.notes.get("graph_ms") == "cached"
 
@@ -295,11 +297,60 @@ def test_uncached_render_fetches_once():
     theme = themes.get("noir")
     with mock.patch.object(render, "geocode", return_value=(18.5, 73.8)), \
          mock.patch.object(render, "is_cached", return_value=False), \
+         mock.patch.object(render, "use_reachable_overpass") as pick_server, \
          mock.patch.object(render, "prefetch") as prefetch, \
          mock.patch.object(render, "render", return_value=render.OUTPUT_DIR / "x.png"):
         _, timings = pipeline.render_poster(theme, "Pune", "India", 3000)
+    pick_server.assert_called_once()
     prefetch.assert_called_once()
     assert timings.notes.get("graph_ms") == "downloaded"
+
+
+def test_unreachable_servers_stop_the_render_before_drawing():
+    theme = themes.get("noir")
+    with mock.patch.object(render, "geocode", return_value=(18.5, 73.8)), \
+         mock.patch.object(render, "is_cached", return_value=False), \
+         mock.patch.object(render, "use_reachable_overpass", side_effect=render.MapDataUnavailable(["a: x"])), \
+         mock.patch.object(render, "render") as drawn, \
+         pytest.raises(render.MapDataUnavailable):
+        pipeline.render_poster(theme, "Pune", "India", 3000)
+    drawn.assert_not_called()
+
+
+# --------------------------------------------------------------------------
+# Overpass server fallback
+# --------------------------------------------------------------------------
+
+ENDPOINTS = ("https://dead.example/api", "https://mirror.example/api")
+
+
+def _status(url, headers, timeout):
+    import requests
+
+    if url.startswith(ENDPOINTS[0]):
+        raise requests.ConnectionError("[Errno 111] Connection refused")
+    return mock.Mock(status_code=200)
+
+
+def test_refused_server_falls_back_to_the_next(monkeypatch):
+    import osmnx as ox
+
+    monkeypatch.setattr(render, "OVERPASS_ENDPOINTS", ENDPOINTS)
+    monkeypatch.setattr(ox.settings, "overpass_url", "https://overpass-api.de/api")
+    with mock.patch("requests.get", side_effect=_status):
+        assert render.use_reachable_overpass() == "mirror.example"
+    assert ox.settings.overpass_url == ENDPOINTS[1]
+
+
+def test_no_reachable_server_gives_a_clear_error(monkeypatch):
+    import requests
+
+    monkeypatch.setattr(render, "OVERPASS_ENDPOINTS", ENDPOINTS)
+    with mock.patch("requests.get", side_effect=requests.ConnectionError("refused")), \
+         pytest.raises(render.MapDataUnavailable) as raised:
+        render.use_reachable_overpass()
+    assert raised.value.errors == ["dead.example: ConnectionError", "mirror.example: ConnectionError"]
+    assert "try again" in str(raised.value)
 
 
 def test_city_hint_overrides_what_the_model_inferred():
@@ -342,3 +393,14 @@ def _fake_generation():
         trace=GenerationTrace(description="anything", source="first"),
         timings=timings,
     )
+
+
+
+def test_status_check_identifies_as_osmnx(monkeypatch):
+    """overpass-api.de answers 406 to a generic client; osmnx's User-Agent gets 200."""
+    import osmnx as ox
+
+    monkeypatch.setattr(render, "OVERPASS_ENDPOINTS", ENDPOINTS[1:])
+    with mock.patch("requests.get", return_value=mock.Mock(status_code=200)) as get:
+        render.use_reachable_overpass()
+    assert get.call_args.kwargs["headers"]["User-Agent"] == ox.settings.http_user_agent

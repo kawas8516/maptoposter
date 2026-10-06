@@ -54,3 +54,13 @@ runs/
 
 # Stray git-worktree gitlinks
 .claude/worktrees/
+
+# graphify knowledge-graph output - local dev tool, not project deliverable
+graphify-out/
+
+# Local work kept out of the repo: reference-map prototype and presentation notes
+district_map/
+scripts/district_map.py
+tests/test_district_map.py
+tests/test_overpass.py
+docs/presentation.md
